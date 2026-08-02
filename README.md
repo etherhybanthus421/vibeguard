@@ -69,6 +69,9 @@ offline, and never uploads your code anywhere.
 > **guardvibe.vercel.app** — paste *your own* code (your copilot's, your teammate's, your
 > 2am self) into the browser and watch vibeguard catch it in real time. It runs entirely in
 > your browser. Nothing leaves your machine. Source lives in [`web/`](web/).
+>
+> **Deploying:** the site is a pure static folder. In Vercel, import this repo and set
+> **Root Directory** to `web` (Framework Preset: *Other*). Every push redeploys automatically.
 
 ```bash
 vibeguard demo
