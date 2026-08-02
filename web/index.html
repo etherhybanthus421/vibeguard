@@ -3,9 +3,9 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>vibeguard — AI Code Scanner, Fixer &amp; Vulnerability Reports</title>
-  <meta name="description" content="Scan code for bugs and security vulnerabilities, get AI-powered fixes and deployment warnings, and generate downloadable reports. Free. No signup. Paste any free AI API key (Gemini, Groq, OpenRouter, Cerebras, Mistral, GitHub Models, NVIDIA) and scan in seconds." />
-  <meta name="keywords" content="code scanner, vulnerability scanner, AI code review, bug finder, security audit, free AI API, Gemini, Groq, OpenRouter, Cerebras, deployment warnings, static analysis" />
+  <title>vibeguard — AI Code Scanner, Fixer &amp; Website Vulnerability Scanner</title>
+  <meta name="description" content="Scan code for bugs and security vulnerabilities, scan any website for web vulnerabilities, get AI-powered fixes and deployment warnings, and generate downloadable reports. Free. No signup. Paste any free AI API key (Gemini, Groq, OpenRouter, Cerebras, Mistral, GitHub Models, NVIDIA) and scan in seconds." />
+  <meta name="keywords" content="code scanner, vulnerability scanner, website vulnerability scanner, site scanner, AI code review, bug finder, security audit, free AI API, Gemini, Groq, OpenRouter, Cerebras, deployment warnings, static analysis" />
   <meta name="theme-color" content="#070b12" />
   <meta property="og:title" content="vibeguard — Your AI is confident. vibeguard is not." />
   <meta property="og:description" content="Scan code for bugs and vulnerabilities, get AI fixes and deployment warnings, generate reports. Free, no signup, works with any free AI API key." />
@@ -88,7 +88,8 @@
       <h2 class="section-title">AI <span class="gradient-text">Studio</span></h2>
       <p class="section-sub">
         Drop in code, pick a scan, run it. The <b>static scan</b> is instant and offline.
-        Every other mode uses the AI model you connect — <b>paste a free key below</b> to unlock them.
+        <b>Site Sentinel</b> audits any live website. Every other mode uses the AI model you
+        connect — <b>paste a free key below</b> to unlock them.
       </p>
 
       <div class="studio-grid">
@@ -100,6 +101,7 @@
             <button class="mode-tab" data-mode="fix" role="tab">Fix &amp; explain</button>
             <button class="mode-tab" data-mode="deploy" role="tab">API &amp; deploy</button>
             <button class="mode-tab" data-mode="report" role="tab">Full report</button>
+            <button class="mode-tab" data-mode="site" role="tab">Site Sentinel</button>
           </div>
 
           <div class="provider-panel" id="providerPanel">
@@ -192,6 +194,22 @@
                 <button class="tool-btn" id="btnFetchGh" type="button">⏎ fetch</button>
               </div>
               <div class="term-out"><span class="gh-status" id="ghStatus"></span><span class="term-cursor" aria-hidden="true"></span></div>
+            </div>
+          </div>
+
+          <div class="terminal" id="siteTerminal" hidden>
+            <div class="term-bar">
+              <span class="term-dots" aria-hidden="true"><i></i><i></i><i></i></span>
+              <span class="term-title">site sentinel</span>
+              <span class="term-label">web scan · AI</span>
+            </div>
+            <div class="term-body">
+              <div class="term-line">
+                <span class="term-prompt" aria-hidden="true">$</span>
+                <input id="siteUrl" type="text" placeholder="https://example.com" spellcheck="false" autocomplete="off" aria-label="Website URL to scan" />
+                <button class="tool-btn" id="btnScanSite" type="button">⏎ scan</button>
+              </div>
+              <div class="term-out"><span class="gh-status" id="siteStatus"></span><span class="term-cursor" aria-hidden="true"></span></div>
             </div>
           </div>
 

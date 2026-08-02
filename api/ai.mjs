@@ -4,7 +4,12 @@
    Actions:
      - chat   auto-picks a working model (presets + live list) and retries on model errors
      - models lists available models for a provider using your key
+     - fetch  resolves and grabs a public webpage for the Site Sentinel web scan
+              (SSRF-guarded: private/loopback/link-local targets are refused)
    built by @thesajidalam */
+
+import { lookup } from "node:dns/promises";
+import { isIP } from "node:net";
 
 const PROVIDERS = {
   gemini: { base: "https://generativelanguage.googleapis.com/v1beta" },
@@ -221,6 +226,141 @@ async function geminiChat(key, model, messages, opts) {
   return { ok: true, content, model };
 }
 
+/* ---------------- Site Sentinel: guarded page grab ---------------- */
+
+function isPrivateIP(ip) {
+  if (isIP(ip) === 0) return true;
+  const norm = String(ip).toLowerCase();
+  if (norm.startsWith("::ffff:")) return isPrivateIP(norm.slice(7));
+  if (norm.includes(":")) {
+    if (norm === "::1") return true;
+    if (norm.startsWith("::") || norm.startsWith("fe") || norm.startsWith("fc") || norm.startsWith("fd") || norm.startsWith("ff") || norm.startsWith("2001:db8") || norm.startsWith("2001:10")) return true;
+    return false;
+  }
+  const p = norm.split(".").map(Number);
+  if (p.length !== 4 || p.some((n) => !Number.isFinite(n) || n < 0 || n > 255)) return true;
+  if (p[0] === 0 || p[0] === 10 || p[0] === 127 || p[0] === 255 || p[0] >= 224) return true;
+  if (p[0] === 169 && p[1] === 254) return true;
+  if (p[0] === 172 && p[1] >= 16 && p[1] <= 31) return true;
+  if (p[0] === 192 && p[1] === 168) return true;
+  if (p[0] === 100 && p[1] >= 64 && p[1] <= 127) return true;
+  return false;
+}
+
+async function assertPublicHost(urlStr) {
+  const url = new URL(urlStr);
+  if (!/^https?:$/.test(url.protocol)) throw { code: "PROTOCOL", message: "Only http:// and https:// URLs can be scanned." };
+  let addrs;
+  try {
+    addrs = await lookup(url.hostname, { all: true });
+  } catch (e) {
+    throw { code: "DNS", message: "Could not resolve that hostname." };
+  }
+  if (!addrs || !addrs.length) throw { code: "DNS", message: "Could not resolve that hostname." };
+  for (const a of addrs) {
+    if (isPrivateIP(a.address)) throw { code: "PRIVATE", message: "Refused: that address resolves to a private/internal network, which is not allowed." };
+  }
+}
+
+async function fetchPage(url, maxBytes) {
+  let current = url;
+  for (let hop = 0; hop < 6; hop++) {
+    await assertPublicHost(current);
+    let res;
+    try {
+      res = await fetchWithTimeout(current, {
+        redirect: "manual",
+        headers: {
+          "User-Agent": "vibeguard-sentinel/1.0 (site security scanner)",
+          Accept: "text/html,application/xhtml+xml;q=0.9,*/*;q=0.8",
+          "Accept-Language": "en",
+        },
+      }, 8000);
+    } catch (e) {
+      if (e && e.name === "AbortError") throw { code: "TIMEOUT", message: "The site did not respond in time (8s)." };
+      throw { code: "NETWORK", message: "Could not reach that site." };
+    }
+    if (res.status >= 300 && res.status < 400 && res.headers.get("location")) {
+      try {
+        current = new URL(res.headers.get("location"), current).href;
+      } catch (e) {
+        throw { code: "REDIRECT", message: "The site redirected to an invalid URL." };
+      }
+      continue;
+    }
+    const chunks = [];
+    let size = 0;
+    try {
+      const reader = res.body.getReader();
+      for (;;) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        size += value.length;
+        if (size > maxBytes) throw { code: "BIG", message: "The page is larger than " + Math.round(maxBytes / 1024) + " KB — skipped to keep the scan fast." };
+        chunks.push(value);
+      }
+    } catch (e) {
+      if (e && e.code) throw e;
+      throw { code: "READ", message: "Could not read the page body." };
+    }
+    return { res, buf: Buffer.concat(chunks), finalUrl: current };
+  }
+  throw { code: "REDIRECT", message: "Too many redirects while resolving that URL." };
+}
+
+function extractPageInfo(html, finalUrl) {
+  const title = ((html.match(/<title[^>]*>([\s\S]*?)<\/title>/i) || [])[1] || "").replace(/\s+/g, " ").trim();
+  const desc = ((html.match(/<meta[^>]+name=["']description["'][^>]+content=["']([^"']*)["']/i) || [])[1] || "").trim();
+  const links = [...html.matchAll(/<a[^>]+href=["']([^"']+)["'][^>]*>/gi)].map((m) => m[1]).filter((h) => h && !/^(#|javascript:)/i.test(h)).slice(0, 60);
+  const scripts = [...html.matchAll(/<script[^>]+src=["']([^"']+)["'][^>]*>/gi)].map((m) => m[1]).slice(0, 40);
+  const styles = [...html.matchAll(/<link[^>]+rel=["']stylesheet["'][^>]*href=["']([^"']+)["'][^>]*>/gi)].map((m) => m[1]).slice(0, 20);
+  const forms = [...html.matchAll(/<form[\s\S]*?>/gi)].map((m) => m[0]).slice(0, 12);
+  const inputs = [...html.matchAll(/<input[^>]*>/gi)].map((m) => m[0]).slice(0, 30);
+  const iframes = [...html.matchAll(/<iframe[^>]+src=["']([^"']*)["'][^>]*>/gi)].map((m) => m[1]).slice(0, 12);
+  const metas = [...html.matchAll(/<meta[^>]+>/gi)].map((m) => m[0]).slice(0, 20);
+  const text = html
+    .replace(/<script[\s\S]*?<\/script>/gi, " ")
+    .replace(/<style[\s\S]*?<\/style>/gi, " ")
+    .replace(/<noscript[\s\S]*?<\/noscript>/gi, " ")
+    .replace(/<!--[\s\S]*?-->/g, " ")
+    .replace(/<[^>]+>/g, " ")
+    .replace(/&nbsp;/gi, " ").replace(/&amp;/gi, "&").replace(/&lt;/gi, "<").replace(/&gt;/gi, ">").replace(/&quot;/gi, '"').replace(/&#0*39;/gi, "'")
+    .replace(/\s+/g, " ").trim();
+  return { title, desc, links, scripts, styles, forms, inputs, iframes, metas, text: text.slice(0, 32000), url: finalUrl };
+}
+
+async function actionFetch(body) {
+  const raw = String(body.url || "").trim();
+  if (!raw) return { error: [400, "Enter a website URL to scan."] };
+  let parsed;
+  try {
+    parsed = new URL(raw);
+  } catch (e) {
+    return { error: [400, "That does not look like a valid URL."] };
+  }
+  if (!/^https?:$/.test(parsed.protocol)) return { error: [400, "Only http:// and https:// URLs can be scanned."] };
+
+  try {
+    const { res, buf, finalUrl } = await fetchPage(parsed.href, 250 * 1024);
+    const info = extractPageInfo(buf.toString("utf8"), finalUrl);
+    return {
+      ok: true,
+      url: finalUrl,
+      status: res.status,
+      contentType: String(res.headers.get("content-type") || "").split(";")[0].trim(),
+      bytes: buf.length,
+      ...info,
+    };
+  } catch (e) {
+    const code = (e && e.code) || "FETCH";
+    const message = (e && e.message) || "Could not fetch that site.";
+    if (code === "PRIVATE") return { error: [403, message] };
+    if (code === "BIG") return { error: [413, message] };
+    if (code === "TIMEOUT") return { error: [504, message] };
+    return { error: [502, message] };
+  }
+}
+
 /* ---------------- actions ---------------- */
 
 async function actionModels(body) {
@@ -337,8 +477,8 @@ export default async function handler(req, res) {
     return;
   }
 
-  const action = body.action === "models" ? "models" : "chat";
-  const result = action === "models" ? await actionModels(body) : await actionChat(body);
+  const action = body.action === "models" ? "models" : body.action === "fetch" ? "fetch" : "chat";
+  const result = action === "models" ? await actionModels(body) : action === "fetch" ? await actionFetch(body) : await actionChat(body);
 
   if (result.error) {
     const [code, message, detail] = result.error;

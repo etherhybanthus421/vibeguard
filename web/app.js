@@ -1,5 +1,5 @@
 /* vibeguard AI Studio — static scanner + AI-powered bug finder, security audit,
-   fixer, deployment review and report generator.
+   fixer, deployment review, report generator and the Site Sentinel web scanner.
    Works with free AI API keys (Gemini, Groq, OpenRouter, Cerebras, Mistral,
    GitHub Models, NVIDIA, or any OpenAI-compatible endpoint).
    built by @thesajidalam */
@@ -596,6 +596,7 @@ const MODES = {
   fix: { label: "Fix & explain", ai: true, hint: "AI review — key needed" },
   deploy: { label: "API & deployment", ai: true, hint: "AI review — key needed" },
   report: { label: "Full audit report", ai: true, hint: "AI review — key needed" },
+  site: { label: "Site Sentinel", ai: true, hint: "web scan — key needed" },
 };
 
 const SYSTEM = {
@@ -609,6 +610,8 @@ const SYSTEM = {
     "You are vibeguard, a deployment and API reliability reviewer. Flag env-var handling holes, hardcoded config, missing retries/backoff, swallowed errors, missing health checks, CORS misconfiguration, auth leaks, missing rate limiting, secret logging, and unsafe production defaults. Respond in Markdown with: Risk Score line (format exactly 'Risk Score: N/100'), a table of deployment risks (columns: Severity | Area | Risk | Fix), an action checklist, and a short hardening section.",
   report:
     "You are vibeguard, producing a comprehensive executive audit report. Output a single Markdown document with: Executive Summary, Risk Score (format exactly 'Risk Score: N/100'), Findings Summary table (Severity | Count), Detailed findings (each with location, line, description, severity and fix), Security vulnerabilities, Deployment & API warnings, Best-practice recommendations, and a Prioritized action plan. Be specific and cite line numbers throughout.",
+  site:
+    "You are vibeguard Site Sentinel, a ruthless website security auditor. A live webpage was fetched and its HTML structure, scripts, links, forms, inputs and visible text are shown below. Hunt for real web vulnerabilities: exposed secrets or internal hosts, forms with no CSRF token or insecure submission, plaintext/weak login fields, unvalidated inputs, links to risky or internal URLs, third-party/injected scripts, outdated or suspicious libraries, missing security headers, redirect and SSRF smells, open redirects, information disclosure, admin/debug/staging exposure and anything else an attacker could exploit. Respond in Markdown with: a one-line Risk Score (format exactly 'Risk Score: N/100'), a findings table (columns: Severity | Location | Vulnerability | Exploit risk | Fix), a concrete recommendations list, and a short hardening checklist. Quote the actual URLs, attribute names and strings you found on the page. Be specific and actionable, never vague.",
 };
 
 function buildUserMessage(files, truncated) {
@@ -618,6 +621,26 @@ function buildUserMessage(files, truncated) {
   }
   if (truncated) out += "\n(Note: the input was large; this is the part that fit in the model window.)\n";
   out += "\nReview the code above. Cite line numbers, keep it actionable.";
+  return out;
+}
+
+function buildSiteMessage(g) {
+  let out = "Website under audit:\n\n";
+  out += "- Final URL: " + g.url + "\n";
+  out += "- HTTP status: " + g.status + "\n";
+  out += "- Content type: " + (g.contentType || "unknown") + "\n";
+  out += "- Page size: " + (g.bytes || 0) + " bytes\n";
+  if (g.title) out += "- Title: " + g.title + "\n";
+  if (g.desc) out += "- Meta description: " + g.desc + "\n";
+  if (g.metas && g.metas.length) out += "\n## Meta tags\n" + g.metas.map((m) => "- `" + m + "`").join("\n") + "\n";
+  if (g.styles && g.styles.length) out += "\n## Stylesheets loaded\n" + g.styles.map((s) => "- " + s).join("\n") + "\n";
+  if (g.scripts && g.scripts.length) out += "\n## Scripts loaded\n" + g.scripts.map((s) => "- " + s).join("\n") + "\n";
+  if (g.forms && g.forms.length) out += "\n## Forms (" + g.forms.length + ")\n" + g.forms.map((f) => "- `" + f + "`").join("\n") + "\n";
+  if (g.inputs && g.inputs.length) out += "\n## Input elements\n" + g.inputs.map((i) => "- `" + i + "`").join("\n") + "\n";
+  if (g.iframes && g.iframes.length) out += "\n## Iframes\n" + g.iframes.map((i) => "- " + i).join("\n") + "\n";
+  if (g.links && g.links.length) out += "\n## Links found\n" + g.links.map((l) => "- " + l).join("\n") + "\n";
+  if (g.text) out += "\n## Visible page text\n\n" + g.text + "\n";
+  out += "\nAudit the page above for web vulnerabilities. Quote the actual URLs, attribute names and strings you found. Keep it actionable.";
   return out;
 }
 
@@ -842,6 +865,8 @@ function setMode(mode) {
   $("runHint").textContent = MODES[mode].hint;
   titleEl.textContent = MODES[mode].label;
   verdictEl.innerHTML = "";
+  const siteTerm = $("siteTerminal");
+  if (siteTerm) siteTerm.hidden = mode !== "site";
 }
 
 function setStatus(text, cls) {
@@ -852,6 +877,7 @@ function setStatus(text, cls) {
 async function run() {
   const mode = MODES[activeMode];
   if (!mode.ai) return runStatic();
+  if (activeMode === "site") return scanSite();
   return runAI();
 }
 
@@ -914,6 +940,51 @@ async function runAI() {
       ts: new Date().toISOString(), temperature: settings.temp,
     };
   } catch (e) {
+    setStatus("failed");
+    verdictEl.innerHTML = `<div class="verdict blocked">Scan failed</div>`;
+    outputEl.innerHTML = `<div class="empty">// ${ESC(e.message)}</div>`;
+    lastReport = null;
+    toast(e.message, "err");
+  }
+}
+
+/* ---------------- Site Sentinel: live web scan ---------------- */
+
+async function scanSite() {
+  const url = $("siteUrl").value.trim();
+  if (!url) { toast("Enter a website URL to scan.", "err"); $("siteUrl").focus(); return; }
+  const p = providerOf(settings.provider);
+  if (!getKey(p.id)) { toast("Paste a free API key first — click the provider panel above.", "err"); return; }
+  const statusEl = $("siteStatus");
+  titleEl.textContent = MODES.site.label + " · " + p.name;
+  setStatus("resolving " + url + " …", "loading");
+  statusEl.textContent = "resolving host…";
+  statusEl.className = "gh-status";
+  outputEl.innerHTML = '<div class="empty">// Site Sentinel is resolving the page…</div>';
+  verdictEl.innerHTML = "";
+  try {
+    const res = await fetch("/api/ai", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "fetch", url }) });
+    let data = null;
+    try { data = await res.json(); } catch (e) { data = null; }
+    if (!data || !data.ok) throw new Error((data && data.error && data.error.message) || "Could not fetch the site (status " + res.status + ").");
+    statusEl.textContent = data.status + " · " + (data.bytes || 0) + " bytes · " + (data.contentType || "html");
+    statusEl.className = "gh-status ok";
+    setStatus("page grabbed · AI auditing " + (data.title ? ESC(data.title).slice(0, 48) : data.url) + "…", "loading");
+    outputEl.innerHTML = '<div class="empty">// analyzing ' + ESC(data.url) + " — " + ESC((data.title || "no <title>").slice(0, 60)) + "…</div>";
+    const ai = await callAI([
+      { role: "system", content: SYSTEM.site },
+      { role: "user", content: buildSiteMessage(data) },
+    ]);
+    outputEl.innerHTML = riskBadges(mdRender(ai.content));
+    setStatus("via " + ai.model, "");
+    verdictEl.innerHTML = `<div class="verdict clean">Site Sentinel review complete — generated by ${ESC(p.name)}</div>`;
+    lastReport = {
+      type: "ai", mode: "site", provider: p.name, model: ai.model,
+      markdown: ai.content, url: data.url, title: data.title || "",
+      ts: new Date().toISOString(), temperature: settings.temp,
+    };
+  } catch (e) {
+    statusEl.textContent = "";
     setStatus("failed");
     verdictEl.innerHTML = `<div class="verdict blocked">Scan failed</div>`;
     outputEl.innerHTML = `<div class="empty">// ${ESC(e.message)}</div>`;
@@ -1243,6 +1314,8 @@ function bindEvents() {
   $("fileInput").addEventListener("change", (e) => { if (e.target.files && e.target.files.length) handleFiles(e.target.files); e.target.value = ""; });
   $("btnFetchGh").addEventListener("click", () => { const u = $("ghUrl").value.trim(); if (u) fetchRepo(u); });
   $("ghUrl").addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); $("btnFetchGh").click(); } });
+  $("btnScanSite").addEventListener("click", () => scanSite());
+  $("siteUrl").addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); $("btnScanSite").click(); } });
 
   codeEl.addEventListener("input", () => {
     if (loadedFiles) loadedFiles = null;
