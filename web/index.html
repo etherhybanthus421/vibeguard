@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>vibeguard — Your AI is confident. vibeguard is not.</title>
+  <meta name="description" content="The AI code reality check. A zero-dependency pre-commit guard that blocks empty catch blocks, hardcoded API keys, null derefs and other 'false-clean' bugs AI loves to ship." />
+  <meta name="keywords" content="vibe coding, AI code review, pre-commit, git hooks, code quality, static analysis, AI, LLM, developer tools" />
+  <meta property="og:title" content="vibeguard — Your AI is confident. vibeguard is not." />
+  <meta property="og:description" content="A zero-dependency pre-commit guard that catches the false-clean bugs AI loves to ship. Try it live — paste your own code." />
+  <meta property="og:url" content="https://guardvibe.vercel.app" />
+  <meta property="og:type" content="website" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="bg-grid"></div>
+
+  <header class="nav">
+    <a class="brand" href="#top">
+      <span class="brand-mark">🛡️</span>
+      <span class="brand-name">vibe<em>guard</em></span>
+    </a>
+    <nav class="nav-links">
+      <a href="#why">Why</a>
+      <a href="#try">Try it</a>
+      <a href="#rules">Rules</a>
+      <a href="#install">Install</a>
+    </nav>
+    <a class="btn btn-ghost" href="https://github.com/thesajidalam/vibeguard" target="_blank" rel="noopener">GitHub ⤴</a>
+  </header>
+
+  <main id="top">
+    <section class="hero">
+      <pre class="logo" aria-hidden="true">
+  ██╗   ██╗██╗██████╗ ███████╗ ██████╗ ██╗   ██╗ █████╗ ██████╗ ██████╗
+  ██║   ██║██║██╔══██╗██╔════╝██╔════╝ ██║   ██║██╔══██╗██╔══██╗██╔══██╗
+  ██║   ██║██║██████╔╝█████╗  ██║  ███╗██║   ██║███████║██████╔╝██║  ██║
+  ╚██╗ ██╔╝██║██╔══██╗██╔══╝  ██║   ██║██║   ██║██╔══██║██╔══██║██║  ██║
+   ╚████╔╝ ██║██████╔╝███████╗╚██████╔╝╚██████╔╝██║  ██║██║  ██║██████╔╝
+    ╚═══╝  ╚═╝╚═════╝ ╚══════╝ ╚═════╝  ╚═════╝ ╚═╝  ╚═╝╚═╝  ╚═╝╚═════╝
+      </pre>
+      <h1>Your AI is confident.<br /><span class="gradient-text">vibeguard is not.</span></h1>
+      <p class="sub">
+        Vibe-coded code <em>looks</em> right. vibeguard proves it isn't. A zero-dependency
+        pre-commit guard that blocks the <b>"false-clean" bugs</b> AI models are statistically
+        obsessed with — empty catches, null derefs, leaked keys, invented env vars.
+      </p>
+      <div class="hero-actions">
+        <a class="btn btn-primary" href="#try">Try it now — paste your code</a>
+        <a class="btn btn-ghost" href="#install">Install in 60 seconds</a>
+      </div>
+      <div class="hero-stats">
+        <span><b>0</b> dependencies</span>
+        <span><b>10</b> rules</span>
+        <span><b>47</b> tests</span>
+        <span><b>&lt;5ms</b> per file</span>
+        <span><b>100%</b> local &amp; private</span>
+      </div>
+    </section>
+
+    <section id="try" class="section">
+      <h2 class="section-title">The wow moment<span class="cursor">_</span></h2>
+      <p class="section-sub">
+        Paste a snippet — <b>your own</b> code, your copilot's, whatever. vibeguard reads it
+        right here in your browser. Nothing leaves your machine.
+      </p>
+      <div class="terminal-wrap">
+        <div class="terminal">
+          <div class="terminal-bar">
+            <span class="dot red"></span><span class="dot yellow"></span><span class="dot green"></span>
+            <span class="terminal-title">vibeguard check --staged</span>
+          </div>
+          <div class="terminal-body">
+            <div class="terminal-input-area">
+              <textarea id="code" spellcheck="false"
+                placeholder="Paste vibe-coded code here, e.g.
+const user = db.users.find(u => u.id === id);
+const key = &quot;sk-live-&quot; + &quot;abc&quot;.repeat(8);
+const token = process.env.AUTH_TOKEN;
+try { await fetch(user.email); } catch (e) {}
+console.log(&quot;debug: done&quot;, user);"></textarea>
+              <div class="terminal-actions">
+                <button class="btn btn-primary" id="demoBtn">Load the demo function</button>
+                <span class="muted">analysis runs as you type</span>
+              </div>
+            </div>
+            <div id="output" class="terminal-output">
+              <div class="empty">// paste code above — findings appear here</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="rules" class="section">
+      <h2 class="section-title">What it catches</h2>
+      <p class="section-sub">Ten rules tuned for the patterns AI generators repeat the most.</p>
+      <div class="rules-grid">
+        <div class="rule-card err"><div class="rule-icon">🔑</div><h3>secret</h3><p>Hardcoded API keys, passwords, private keys.</p><span class="tag">error</span></div>
+        <div class="rule-card err"><div class="rule-icon">🕳️</div><h3>envhole</h3><p>Reads <code>process.env.X</code> nobody ever declared.</p><span class="tag">error</span></div>
+        <div class="rule-card err"><div class="rule-icon">🤐</div><h3>swallow</h3><p>Empty <code>catch {}</code> blocks that erase failures.</p><span class="tag">error</span></div>
+        <div class="rule-card err"><div class="rule-icon">💥</div><h3>nullaccess</h3><p><code>.find()</code> results dereferenced with <code>.</code>.</p><span class="tag">error</span></div>
+        <div class="rule-card warn"><div class="rule-icon">😴</div><h3>sleepfix</h3><p><code>sleep()</code> "fixes" that hide races.</p><span class="tag">warning</span></div>
+        <div class="rule-card warn"><div class="rule-icon">🏷️</div><h3>dummy</h3><p><code>lorem ipsum</code>, <code>changeme</code>, <code>TODO</code>.</p><span class="tag">warning</span></div>
+        <div class="rule-card warn"><div class="rule-icon">🔊</div><h3>debugprint</h3><p><code>console.log</code> / <code>debugger</code> in prod code.</p><span class="tag">warning</span></div>
+        <div class="rule-card warn"><div class="rule-icon">👻</div><h3>deadimport</h3><p>Imports nobody uses.</p><span class="tag">warning</span></div>
+        <div class="rule-card warn"><div class="rule-icon">📦</div><h3>minified</h3><p>Minified/bundled files committed to source.</p><span class="tag">warning</span></div>
+        <div class="rule-card warn"><div class="rule-icon">🪨</div><h3>bignew</h3><p>New files big enough that nobody read them.</p><span class="tag">warning</span></div>
+      </div>
+    </section>
+
+    <section id="install" class="section">
+      <h2 class="section-title">Install in 60 seconds</h2>
+      <div class="install-copy">
+        <div class="code-block">
+          <code>npm install -g vibeguard</code>
+          <button class="copy-btn" data-copy="npm install -g vibeguard">copy</button>
+        </div>
+        <div class="code-block">
+          <code>cd your-project && vibeguard install</code>
+          <button class="copy-btn" data-copy="cd your-project && vibeguard install">copy</button>
+        </div>
+      </div>
+      <p class="muted">
+        Done. From now on, a bad diff <b>cannot be committed</b>. One line in your
+        <code>.git/hooks/pre-commit</code> — no servers, no LLM, no telemetry. Your code never
+        leaves your machine.
+      </p>
+    </section>
+
+    <section class="section cta">
+      <h2>Your AI wrote the code.<br />vibeguard reads the lies.</h2>
+      <div class="hero-actions">
+        <a class="btn btn-primary" href="https://github.com/thesajidalam/vibeguard" target="_blank" rel="noopener">Star vibeguard on GitHub</a>
+        <a class="btn btn-ghost" href="#try">Run the demo again</a>
+      </div>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <p><strong>vibeguard</strong> — <em>Your AI is confident. vibeguard is not.</em></p>
+    <p>built with ❤️ by <a href="https://github.com/thesajidalam" target="_blank" rel="noopener">@thesajidalam</a> · MIT licensed · <a href="https://github.com/thesajidalam/vibeguard" target="_blank" rel="noopener">source</a></p>
+  </footer>
+
+  <script src="app.js"></script>
+</body>
+</html>

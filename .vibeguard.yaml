@@ -7,5 +7,6 @@ envfile: .env.example
 exclude:
   - "test/**"
   - "demo/**"
+  - "web/**"
   - ".vibeguard.example.yaml"
   - "*.lock"

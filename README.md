@@ -5,6 +5,7 @@
   <img src="https://img.shields.io/github/actions/workflow/status/thesajidalam/vibeguard/ci.yml?branch=main&label=CI" alt="CI">
   <img src="https://img.shields.io/badge/tests-47%20%2F%2047-passing-brightgreen" alt="47/47 tests passing">
   <img src="https://img.shields.io/badge/built%20by-%40thesajidalam-orange" alt="built by @thesajidalam">
+  <img src="https://img.shields.io/badge/live%20demo-guardvibe.vercel.app-cyan" alt="live demo">
 </p>
 
 ```
@@ -63,6 +64,11 @@ Most "AI code review" tools are another LLM bolted onto your workflow — slow, 
 offline, and never uploads your code anywhere.
 
 ## The wow moment
+
+> ### 🎮 Try it live — no install, no upload
+> **guardvibe.vercel.app** — paste *your own* code (your copilot's, your teammate's, your
+> 2am self) into the browser and watch vibeguard catch it in real time. It runs entirely in
+> your browser. Nothing leaves your machine. Source lives in [`web/`](web/).
 
 ```bash
 vibeguard demo

@@ -3,6 +3,13 @@
 All notable changes to vibeguard are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [Unreleased]
+
+### Added
+- `web/` — the source of the live interactive landing page at **guardvibe.vercel.app**.
+  Paste your own code and watch vibeguard catch it in your browser (faithful client-side
+  port of the rules, zero uploads, zero servers). Includes favicon and Vercel config.
+
 ## [1.0.1] - 2026-08-02
 
 ### Fixed
