@@ -102,7 +102,10 @@ or machine-readable **JSON** — ready to attach to a PR, an issue, or a client.
 
 ### Providers (free tiers, no card required)
 
-| provider | key from | models |
+No model names or base URLs to type — paste a key, hit **Test & connect**, and vibeguard
+auto-detects the best working model for you (and retries other models automatically if one fails).
+
+| provider | key from | known models |
 |---|---|---|
 | Google Gemini | [aistudio.google.com/apikey](https://aistudio.google.com/apikey) | `gemini-2.5-flash`, `gemini-2.5-pro` |
 | Groq | [console.groq.com/keys](https://console.groq.com/keys) | `llama-3.3-70b-versatile`, `llama-3.1-8b-instant` |

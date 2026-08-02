@@ -444,11 +444,17 @@ const PROVIDERS = [
 const STORE_KEYS = "vbg_keys";
 const STORE_SETTINGS = "vbg_settings";
 const STORE_CUSTOM = "vbg_custom";
+const STORE_MODELS = "vbg_models";
+const STORE_CHOICE = "vbg_choice";
 
 function loadKeys() { try { return JSON.parse(localStorage.getItem(STORE_KEYS)) || {}; } catch (e) { return {}; } }
 function saveKeys(k) { localStorage.setItem(STORE_KEYS, JSON.stringify(k)); }
 function getKey(pid) { return loadKeys()[pid] || ""; }
 function setKey(pid, v) { const k = loadKeys(); if (v) k[pid] = v; else delete k[pid]; saveKeys(k); }
+function loadModelCache() { try { return JSON.parse(localStorage.getItem(STORE_MODELS)) || {}; } catch (e) { return {}; } }
+function loadModelChoice() { try { return JSON.parse(localStorage.getItem(STORE_CHOICE)) || {}; } catch (e) { return {}; } }
+let modelCache = loadModelCache();
+let modelChoice = loadModelChoice();
 function loadSettings() {
   try {
     const s = JSON.parse(localStorage.getItem(STORE_SETTINGS)) || {};
@@ -459,6 +465,8 @@ function loadSettings() {
 function saveSettings(s) {
   localStorage.setItem(STORE_SETTINGS, JSON.stringify({ provider: s.provider, model: s.model, temp: s.temp }));
   localStorage.setItem(STORE_CUSTOM, JSON.stringify({ base: s.customBase, model: s.customModel }));
+  localStorage.setItem(STORE_MODELS, JSON.stringify(modelCache));
+  localStorage.setItem(STORE_CHOICE, JSON.stringify(modelChoice));
 }
 
 let settings = loadSettings();
@@ -473,9 +481,13 @@ function renderProviderSelect() {
 function renderModelSelect() {
   const sel = $("modelSel");
   const p = providerOf(settings.provider);
-  sel.innerHTML = (p.models && p.models.length ? p.models : [""]).map((m) => `<option value="${ESC(m)}">${ESC(m)}</option>`).join("");
-  if (p.models.includes(settings.model)) sel.value = settings.model;
-  else if (p.models.length) sel.value = p.models[0];
+  const cached = (modelCache[p.id] && modelCache[p.id].length) ? modelCache[p.id] : (p.models && p.models.length ? p.models : []);
+  sel.innerHTML = ['<option value="">Auto (best available)</option>']
+    .concat(cached.map((m) => '<option value="' + ESC(m) + '">' + ESC(m) + "</option>"))
+    .join("");
+  const chosen = p.id === "custom" ? "" : (modelChoice[p.id] || settings.model || "");
+  sel.value = cached.includes(chosen) ? chosen : "";
+  settings.model = p.id === "custom" ? settings.model : sel.value;
   $("customRow").hidden = p.id !== "custom";
   if (p.id === "custom") {
     $("customBase").value = settings.customBase;
@@ -495,10 +507,43 @@ function syncProviderUI() {
 function updateProviderState() {
   const p = providerOf(settings.provider);
   const has = !!getKey(p.id);
-  $("providerState").textContent = has ? p.name + " connected" : "no key set — static scan only";
+  const m = p.id === "custom" ? (settings.customModel || "custom model") : (modelChoice[p.id] || settings.model || "auto model");
+  $("providerState").textContent = has ? p.name + " connected · " + m : "no key set — static scan only";
   $("keyStatus").textContent = has
     ? "Key stored only in this browser. Sent straight to " + p.name + " via the relay — never logged or stored on vibeguard."
     : "Keys are stored only in your browser and sent straight to the provider. Never shared, never logged.";
+}
+
+async function refreshModels(silent) {
+  const p = providerOf(settings.provider);
+  const key = getKey(p.id);
+  const btn = $("btnModels");
+  if (!key) { if (!silent) toast("Paste a key first.", "err"); return null; }
+  if (btn) { btn.disabled = true; btn.textContent = "loading…"; }
+  try {
+    const body = { action: "models", provider: p.id, key };
+    if (p.id === "custom") {
+      if (!settings.customBase) throw new Error("Set the custom base URL first.");
+      body.base = settings.customBase.replace(/\/+$/, "");
+    }
+    const res = await fetch("/api/ai", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+    let data = null;
+    try { data = await res.json(); } catch (e) { data = null; }
+    if (!data || !data.ok) throw new Error((data && data.error && data.error.message) || "Could not load models (status " + res.status + ").");
+    if (data.models && data.models.length) modelCache[p.id] = data.models;
+    const def = data.default || (modelCache[p.id] && modelCache[p.id][0]) || "";
+    if (def && p.id !== "custom" && !modelChoice[p.id]) modelChoice[p.id] = def;
+    saveSettings(settings);
+    renderModelSelect();
+    updateProviderState();
+    if (!silent) toast("Loaded " + (data.models ? data.models.length : 0) + " model" + ((data.models || []).length === 1 ? "" : "s") + " for " + p.name + (def ? " · default: " + def : ""), "ok");
+    return data.models || [];
+  } catch (e) {
+    if (!silent) toast(e.message, "err");
+    return null;
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = "Refresh models"; }
+  }
 }
 
 /* ---------------- AI relay ---------------- */
@@ -509,16 +554,18 @@ async function callAI(messages, opts) {
   if (!key) throw new Error("Paste a free API key first — click the provider panel above.");
   const body = {
     provider: p.id,
-    model: settings.model,
     key,
     messages,
     temperature: settings.temp,
     max_tokens: (opts && opts.max_tokens) || 8192,
+    models: (modelCache[p.id] || []).slice(0, 12),
   };
   if (p.id === "custom") {
     if (!settings.customBase) throw new Error("Set the custom base URL in the provider panel.");
     body.base = settings.customBase.replace(/\/+$/, "");
-    body.model = settings.customModel || body.model;
+    body.model = settings.customModel || "";
+  } else {
+    body.model = settings.model || modelChoice[p.id] || "";
   }
   let res;
   try {
@@ -531,6 +578,11 @@ async function callAI(messages, opts) {
   if (!data || !data.ok) {
     const msg = (data && data.error && data.error.message) || "The AI request failed (status " + res.status + ").";
     throw new Error(msg);
+  }
+  if (data.model && p.id !== "custom") {
+    if (!modelChoice[p.id] && settings.model === "") modelChoice[p.id] = data.model;
+    saveSettings(settings);
+    renderModelSelect();
   }
   return data;
 }
@@ -739,7 +791,7 @@ async function runAI() {
   }
   const p = providerOf(settings.provider);
   titleEl.textContent = MODES[activeMode].label + " · " + p.name;
-  setStatus("running " + settings.model + " …", "loading");
+  setStatus(settings.model ? "running " + settings.model + " …" : "resolving best model…", "loading");
   outputEl.innerHTML = '<div class="empty">// AI is reading ' + files.length + " file" + (files.length === 1 ? "" : "s") + " and scanning for issues…</div>";
   verdictEl.innerHTML = "";
   const messages = [
@@ -1001,11 +1053,13 @@ function bindEvents() {
     settings.model = "";
     saveSettings(settings);
     syncProviderUI();
+    if (getKey(settings.provider)) refreshModels(true);
   });
   $("modelSel").addEventListener("change", (e) => {
     settings.model = e.target.value;
     saveSettings(settings);
   });
+  $("btnModels").addEventListener("click", () => refreshModels(false));
   $("apiKey").addEventListener("input", (e) => {
     setKey(settings.provider, e.target.value.trim());
     updateProviderState();
@@ -1030,9 +1084,11 @@ function bindEvents() {
     $("btnTestKey").disabled = true;
     setStatus("testing connection…", "loading");
     try {
-      const data = await callAI([{ role: "user", content: "Reply with exactly the word ok." }], { max_tokens: 5 });
-      toast("Connected to " + p.name + " (" + data.model + ")", "ok");
-      setStatus("connected");
+      const data = await callAI([{ role: "user", content: "Reply with exactly: PONG" }], { max_tokens: 300 });
+      if (p.id !== "custom" && data.model) { modelChoice[p.id] = data.model; saveSettings(settings); renderModelSelect(); }
+      toast("Connected to " + p.name + " — " + (data.model || "auto model"), "ok");
+      setStatus("connected via " + (data.model || "auto model"));
+      updateProviderState();
     } catch (e) {
       toast(e.message, "err");
       setStatus("connection failed");

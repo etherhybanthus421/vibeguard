@@ -128,11 +128,14 @@
                 <a class="get-key" id="keyLink" href="#" target="_blank" rel="noopener">
                   Get a free key from this provider →
                 </a>
-                <button class="btn btn-ghost btn-sm" id="btnTestKey" type="button">Test connection</button>
+                <div class="btn-group">
+                  <button class="btn btn-ghost btn-sm" id="btnModels" type="button">Refresh models</button>
+                  <button class="btn btn-ghost btn-sm" id="btnTestKey" type="button">Test &amp; connect</button>
+                </div>
               </div>
               <div class="provider-row">
                 <label class="field">
-                  <span class="field-label">Model</span>
+                  <span class="field-label">Model — auto-detected</span>
                   <div class="select-wrap"><select id="modelSel"></select></div>
                 </label>
                 <label class="field field-wide">
@@ -154,6 +157,7 @@
                 </label>
               </div>
               <p class="provider-note" id="keyStatus">Keys are stored only in your browser and sent straight to the provider. Never shared, never logged.</p>
+              <p class="provider-note">Model is auto-detected: paste a key, hit <strong>Test &amp; connect</strong>, and vibeguard picks a working model for you — no model names or base URLs to type. Manual options appear only for Custom providers.</p>
             </div>
           </div>
 

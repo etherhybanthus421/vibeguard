@@ -244,6 +244,7 @@ h1 {
 .provider-panel.open .pt-chev { transform: rotate(180deg); }
 .provider-body { padding: 0 16px 14px; display: grid; gap: 12px; }
 .provider-row { display: flex; gap: 12px; align-items: flex-end; flex-wrap: wrap; }
+.btn-group { display: flex; gap: 8px; flex-wrap: wrap; }
 .field { display: flex; flex-direction: column; gap: 6px; flex: 1 1 220px; min-width: 0; }
 .field-wide { flex: 1.4 1 260px; }
 .field-label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--faint); font-weight: 600; }
