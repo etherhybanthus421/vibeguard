@@ -3,6 +3,22 @@
 All notable changes to vibeguard are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [1.0.1] - 2026-08-02
+
+### Fixed
+- `vibeguard demo` now exits `1` (blocked) when the fixture is rejected, matching the
+  blocked report it prints. Previously it always exited `0`.
+- The binary no longer dumps a raw stack trace on unexpected errors — it reports a clean
+  message, points at the issue tracker, and exits `2`.
+- `vibeguard ... | head` style piping no longer crashes with `EPIPE`.
+- `install --pre-push` was advertised in help but not implemented — it now really installs
+  the pre-push gate (`check --all`), and `doctor` reports both hooks.
+- `-h` / `-help` / `-v` short flags now work.
+
+### Added
+- 8 end-to-end CLI tests (subprocess: flags, exit codes, demo, scan, non-repo `check`).
+  Test suite is now 47 cases, still zero test dependencies.
+
 ## [1.0.0] - 2026-08-02
 
 ### Added

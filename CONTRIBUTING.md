@@ -8,7 +8,7 @@ code *looks* right. Every contribution that makes that less true is welcome.
 ```bash
 git clone https://github.com/thesajidalam/vibeguard.git
 cd vibeguard
-npm test            # 39 tests, zero dependencies, ~half a second
+npm test            # 47 tests, zero dependencies, under a second
 npm run demo        # the wow moment
 node bin/vibeguard.mjs scan .
 ```

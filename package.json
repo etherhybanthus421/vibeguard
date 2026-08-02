@@ -1,6 +1,6 @@
 {
   "name": "vibeguard",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "The AI code reality check. Stops vibe-coded code that 'looks right' from silently shipping into production.",
   "type": "module",
   "bin": {

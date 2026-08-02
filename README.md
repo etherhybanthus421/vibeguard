@@ -3,7 +3,7 @@
   <img src="https://img.shields.io/badge/node-%3E%3D18-green" alt="node >=18">
   <img src="https://img.shields.io/badge/license-MIT-blue" alt="MIT">
   <img src="https://img.shields.io/github/actions/workflow/status/thesajidalam/vibeguard/ci.yml?branch=main&label=CI" alt="CI">
-  <img src="https://img.shields.io/badge/tests-39%20%2F%2039-passing-brightgreen" alt="39/39 tests passing">
+  <img src="https://img.shields.io/badge/tests-47%20%2F%2047-passing-brightgreen" alt="47/47 tests passing">
   <img src="https://img.shields.io/badge/built%20by-%40thesajidalam-orange" alt="built by @thesajidalam">
 </p>
 
@@ -115,9 +115,11 @@ vibeguard check          scan staged changes (default)
 vibeguard scan <path>    scan a directory or file
 vibeguard init           write .vibeguard.yaml
 vibeguard install        add the pre-commit hook
-vibeguard uninstall      remove the pre-commit hook
+  --pre-push             also add the pre-push gate (check --all)
+vibeguard uninstall      remove the hook
 vibeguard doctor         verify your setup
 vibeguard demo           the wow moment
+vibeguard version, -v    print version      vibeguard help, -h    this screen
 ```
 
 ## Exit codes (CI-friendly)
@@ -133,7 +135,7 @@ vibeguard demo           the wow moment
 vibeguard guards itself. This repo runs `vibeguard scan .` as a pre-commit hook, and its own
 source trips the warnings you see above — because the literal words `lorem ipsum`, `changeme`, and
 `TODO` are defined right there in the pattern table. A tool that strict is the one you want on
-your commits. Check out the tests: **39 test cases, zero test dependencies**, `npm test`.
+your commits. Check out the tests: **47 test cases, zero test dependencies**, `npm test`.
 
 ## Contributing
 

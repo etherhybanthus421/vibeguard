@@ -1,6 +1,12 @@
 import { cyan, gray, bold, green, red, yellow } from "./ansi.mjs";
+import fs from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 
-export const VERSION = "1.0.0";
+const pkg = JSON.parse(
+  fs.readFileSync(path.join(path.dirname(fileURLToPath(import.meta.url)), "..", "package.json"), "utf8")
+);
+export const VERSION = pkg?.version ?? "0.0.0";
 
 export const TAGLINE = "Your AI is confident. vibeguard is suspicious.";
 

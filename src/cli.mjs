@@ -25,6 +25,9 @@ function parseArgs(argv) {
     command = "help";
   }
 
+  if (args.includes("-h") || args.includes("-help")) flags.help = true;
+  if (args.includes("-v")) flags.version = true;
+
   for (let i = 0; i < args.length; i++) {
     const a = args[i];
     if (a === "--") {
@@ -42,6 +45,8 @@ function parseArgs(argv) {
         value = args[++i];
       }
       flags[key] = value;
+    } else if (a === "-h" || a === "-help" || a === "-v") {
+      continue;
     } else {
       positionals.push(a);
     }
@@ -93,7 +98,9 @@ ${bold("COMMANDS")}
                options: --force            overwrite an existing config
 
   install      install the pre-commit hook that blocks bad AI code
+               options: --pre-push          also install the pre-push gate
   uninstall    remove the vibeguard hook
+               options: --pre-push          remove the pre-push hook instead
   doctor       check that everything is wired up
   demo         show vibeguard catching real AI-code mistakes (safe)
   version      print version
@@ -103,7 +110,8 @@ ${bold("EXIT CODES")}
   0  clean or warnings only     1  vibeguard blocked the diff     2  something broke
 
 ${bold("HOOK")}
-  vibeguard install && vibeguard install --pre-push   # optional second gate
+  vibeguard install            # pre-commit gate (per commit)
+  vibeguard install --pre-push # optional second gate (per push)
 
 ${gray("built by @thesajidalam — https://github.com/thesajidalam/vibeguard")}
 `);
@@ -251,6 +259,13 @@ function gitDir() {
   return path.resolve(out);
 }
 
+function hookTarget(flags) {
+  const prepush = Boolean(flags["pre-push"]);
+  return prepush
+    ? { name: "pre-push", label: "pre-push", checkArgs: "check --all --quiet" }
+    : { name: "pre-commit", label: "pre-commit", checkArgs: "check --staged --quiet" };
+}
+
 function install(flags) {
   if (!isGitRepo()) {
     process.stderr.write(`${fatal("not a git repository")}\n`);
@@ -258,10 +273,11 @@ function install(flags) {
   }
   const here = fileURLToPath(new URL("./", import.meta.url));
   const binPath = path.join(here, "..", "bin", "vibeguard.mjs");
-  const hook = path.join(gitDir(), "hooks", "pre-commit");
+  const { name, label, checkArgs } = hookTarget(flags);
+  const hook = path.join(gitDir(), "hooks", name);
 
   if (fs.existsSync(hook) && fs.readFileSync(hook, "utf8").includes(HOOK_MARKER)) {
-    process.stdout.write(`${yellow("·")} vibeguard hook already installed\n`);
+    process.stdout.write(`${yellow("·")} vibeguard ${label} hook already installed\n`);
     return 0;
   }
 
@@ -282,13 +298,15 @@ function install(flags) {
     "  exit 0",
     "fi",
     "",
-    `node ${quoted} check --staged --quiet`,
+    `node ${quoted} ${checkArgs}`,
     "",
   ].join("\n");
 
   fs.writeFileSync(hook, body, { mode: 0o755 });
-  process.stdout.write(`${green("✓")} vibeguard pre-commit hook installed at ${cyan(hook)}\n`);
-  process.stdout.write(`${gray("bad AI code now gets blocked before it reaches a commit.")}\n`);
+  process.stdout.write(`${green("✓")} vibeguard ${label} hook installed at ${cyan(hook)}\n`);
+  process.stdout.write(
+    `${gray(label === "pre-commit" ? "bad AI code now gets blocked before it reaches a commit." : "bad AI code now gets blocked before it reaches the remote.")}\n`
+  );
   return 0;
 }
 
@@ -297,12 +315,13 @@ function uninstall(flags) {
     process.stderr.write(`${fatal("not a git repository")}\n`);
     return 2;
   }
-  const hook = path.join(gitDir(), "hooks", "pre-commit");
+  const { name, label } = hookTarget(flags);
+  const hook = path.join(gitDir(), "hooks", name);
   if (fs.existsSync(hook) && fs.readFileSync(hook, "utf8").includes(HOOK_MARKER)) {
     fs.unlinkSync(hook);
-    process.stdout.write(`${green("✓")} vibeguard hook removed\n`);
+    process.stdout.write(`${green("✓")} vibeguard ${label} hook removed\n`);
   } else {
-    process.stdout.write(`${yellow("·")} no vibeguard hook found\n`);
+    process.stdout.write(`${yellow("·")} no vibeguard ${label} hook found\n`);
   }
   return 0;
 }
@@ -323,6 +342,10 @@ function doctor(flags) {
       lines.push(`  pre-commit hook ${green("✓ installed")}`);
     } else {
       lines.push(`  pre-commit hook ${yellow("· not installed (vibeguard install)")}`);
+    }
+    const prepush = path.join(gitDir(), "hooks", "pre-push");
+    if (fs.existsSync(prepush) && fs.readFileSync(prepush, "utf8").includes(HOOK_MARKER)) {
+      lines.push(`  pre-push hook   ${green("✓ installed")}`);
     }
   } else {
     lines.push(`  git repo        ${yellow("· not a git repo (scan still works)")}`);
@@ -378,7 +401,7 @@ function demo(flags) {
   process.stdout.write(`${green(bold("\nfix the red, ship with confidence. built by @thesajidalam"))}\n`);
 
   fs.rmSync(dir, { recursive: true, force: true });
-  return 0;
+  return result.blocking ? 1 : 0;
 }
 
 function fail(msg) {
