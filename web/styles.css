@@ -137,8 +137,21 @@ h1 {
 }
 .privacy-bar svg { color: var(--green); }
 
+.hero-scans {
+  margin-top: 30px; width: min(820px, 100%);
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 18px;
+  text-align: left;
+}
+.hero-scan-group { display: flex; flex-direction: column; gap: 8px; }
+.hero-scan-tag {
+  font-family: var(--mono); font-size: 11px; font-weight: 700;
+  letter-spacing: 0.14em; text-transform: uppercase;
+  color: var(--violet); padding-left: 4px;
+}
+.hero-scan-group .hero-scan { margin-top: 0; width: 100%; }
+.hero-scan-note { font-size: 12px; color: var(--faint); padding-left: 4px; }
+
 .hero-scan {
-  margin-top: 34px; width: min(680px, 100%);
   display: flex; align-items: center; gap: 10px;
   padding: 8px 8px 8px 16px;
   background: var(--panel-2);
@@ -148,6 +161,13 @@ h1 {
   transition: border-color 0.2s, box-shadow 0.2s;
 }
 .hero-scan:focus-within { border-color: var(--cyan); box-shadow: 0 0 0 3px rgba(34, 211, 238, 0.15), var(--shadow); }
+.hero-scan.hot {
+  border: 1px solid transparent;
+  background: linear-gradient(180deg, #101a29, #0d1520) padding-box, var(--gradient) border-box;
+  box-shadow: 0 0 30px rgba(167, 139, 250, 0.16), var(--shadow);
+}
+.hero-scan.hot:focus-within { box-shadow: 0 0 0 3px rgba(167, 139, 250, 0.18), 0 0 38px rgba(34, 211, 238, 0.28), var(--shadow); }
+.hero-scan.hot .scan-icon { color: var(--violet); }
 .hero-scan .scan-icon { color: var(--faint); flex: 0 0 auto; }
 .hero-scan input {
   flex: 1; min-width: 0;
@@ -229,6 +249,13 @@ h1 {
 }
 .mode-tab:hover { color: var(--text); }
 .mode-tab.active { color: var(--cyan); background: var(--panel-2); border-color: var(--border); }
+.mode-tab.hot { color: var(--violet); }
+.mode-tab.hot.active { color: var(--violet); border-color: rgba(167, 139, 250, 0.35); }
+.tab-new {
+  font-size: 9px; font-weight: 800; letter-spacing: 0.06em;
+  color: #060a0f; background: var(--gradient);
+  border-radius: 999px; padding: 2px 6px; margin-left: 5px; vertical-align: 1px;
+}
 
 /* provider panel */
 .provider-panel { border-bottom: 1px solid var(--border); }

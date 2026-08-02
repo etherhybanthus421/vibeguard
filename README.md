@@ -172,7 +172,7 @@ rules:
 | **Fix & explain** | rewrites the flagged code and explains every change |
 | **API & deployment** | warns about config, secrets, CORS, and deploy blockers |
 | **Full audit report** | the whole package, formatted like a professional security report |
-| **Site Sentinel** | feeds any live URL to the AI — vibeguard resolves the page server-side, grabs its HTML, scripts, forms, inputs, links and visible text, then audits it for web vulnerabilities |
+| **Website Scanner** | feeds any live URL to the AI — vibeguard resolves the page server-side, grabs its HTML, scripts, forms, inputs, links and visible text, then audits it for web vulnerabilities |
 
 Every AI mode returns a **Risk Score /100**, a severity table
 (Critical / High / Medium / Low), and per-issue fixes.
@@ -185,10 +185,11 @@ Every AI mode returns a **Risk Score /100**, a severity table
   the tree via the public API (up to 30 source files, oversized files safely skipped)
   and scans it in one click
 
-### Scan a live website (Site Sentinel)
+### Scan a live website (Website Scanner)
 
-Drop any `http(s)://` URL into the **Site Sentinel** terminal and press Run. The relay
-resolves the page server-side and feeds the grabbed content to your connected model:
+Drop any URL — **`http://` or `https://` is optional** — into the **Website Scanner**
+terminal and press Run. The relay resolves the page server-side and feeds the grabbed
+content to your connected model:
 
 - **SSRF-guarded** — private, loopback, link-local and cloud-metadata addresses are
   refused (DNS re-checked on every redirect hop)

@@ -8,7 +8,7 @@
   <meta name="keywords" content="code scanner, vulnerability scanner, website vulnerability scanner, site scanner, AI code review, bug finder, security audit, free AI API, Gemini, Groq, OpenRouter, Cerebras, deployment warnings, static analysis" />
   <meta name="theme-color" content="#070b12" />
   <meta property="og:title" content="vibeguard — Your AI is confident. vibeguard is not." />
-  <meta property="og:description" content="Scan code for bugs and vulnerabilities, get AI fixes and deployment warnings, generate reports. Free, no signup, works with any free AI API key." />
+  <meta property="og:description" content="Scan code for bugs and vulnerabilities, scan any website for web vulnerabilities, get AI fixes and deployment warnings, generate reports. Free, no signup, works with any free AI API key." />
   <meta property="og:type" content="website" />
   <meta property="og:url" content="https://vibeguard.vercel.app" />
   <link rel="icon" href="favicon.svg" type="image/svg+xml" />
@@ -31,7 +31,8 @@
       <span class="brand-name">vibe<em>guard</em></span>
     </a>
     <nav class="nav-links" aria-label="primary">
-      <a href="#features">Features</a>
+      <a href="#features">Scanners</a>
+      <a href="#studio" data-nav="site">Website Scanner</a>
       <a href="#how">How it works</a>
       <a href="#studio">AI Studio</a>
       <a href="#providers">Free AI</a>
@@ -64,11 +65,27 @@
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="4" y="10" width="16" height="11" rx="2"/><path d="M8 10V7a4 4 0 018 0v3"/></svg>
         No signup · no login · keys stay in your browser · static scan runs 100% locally
       </div>
-      <form class="hero-scan" id="heroScan">
-        <svg class="scan-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="4"/><path d="M7 3v18M17 3v18M3 7h18M3 17h18"/></svg>
-        <input id="heroRepo" type="text" placeholder="https://github.com/username/repository" aria-label="GitHub repository URL" />
-        <button class="btn btn-primary" type="submit">Scan for vulnerabilities</button>
-      </form>
+
+      <div class="hero-scans">
+        <div class="hero-scan-group">
+          <span class="hero-scan-tag">AI website vulnerability scanner</span>
+          <form class="hero-scan hot" id="heroSite">
+            <svg class="scan-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a9 9 0 010 18M12 7a5 5 0 010 10"/></svg>
+            <input id="heroSiteUrl" type="text" placeholder="example.com — any website, no http:// needed" aria-label="Website URL to scan for vulnerabilities" />
+            <button class="btn btn-primary" type="submit">Scan website</button>
+          </form>
+          <p class="hero-scan-note">AI finds exposed secrets, unsafe forms, risky scripts &amp; more · needs a free AI key</p>
+        </div>
+        <div class="hero-scan-group">
+          <span class="hero-scan-tag">GitHub code scan</span>
+          <form class="hero-scan" id="heroScan">
+            <svg class="scan-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="4"/><path d="M7 3v18M17 3v18M3 7h18M3 17h18"/></svg>
+            <input id="heroRepo" type="text" placeholder="https://github.com/username/repository" aria-label="GitHub repository URL" />
+            <button class="btn btn-primary" type="submit">Scan for vulnerabilities</button>
+          </form>
+          <p class="hero-scan-note">instant static scan · no key needed</p>
+        </div>
+      </div>
       <p class="hero-hint">or <a href="#studio">paste code</a> · <a href="#studio" data-chip="sample">try a sample</a> · <a href="#studio" data-chip="upload">upload files</a> · no API key needed for the instant static scan</p>
     </section>
 
@@ -88,8 +105,8 @@
       <h2 class="section-title">AI <span class="gradient-text">Studio</span></h2>
       <p class="section-sub">
         Drop in code, pick a scan, run it. The <b>static scan</b> is instant and offline.
-        <b>Site Sentinel</b> audits any live website. Every other mode uses the AI model you
-        connect — <b>paste a free key below</b> to unlock them.
+        The <b>Website Scanner</b> audits any live URL — just type a domain, no <em>http://</em> needed.
+        Every other mode uses the AI model you connect — <b>paste a free key below</b> to unlock them.
       </p>
 
       <div class="studio-grid">
@@ -101,7 +118,7 @@
             <button class="mode-tab" data-mode="fix" role="tab">Fix &amp; explain</button>
             <button class="mode-tab" data-mode="deploy" role="tab">API &amp; deploy</button>
             <button class="mode-tab" data-mode="report" role="tab">Full report</button>
-            <button class="mode-tab" data-mode="site" role="tab">Site Sentinel</button>
+            <button class="mode-tab hot" data-mode="site" role="tab">Website Scanner <span class="tab-new">NEW</span></button>
           </div>
 
           <div class="provider-panel" id="providerPanel">
@@ -200,13 +217,13 @@
           <div class="terminal" id="siteTerminal" hidden>
             <div class="term-bar">
               <span class="term-dots" aria-hidden="true"><i></i><i></i><i></i></span>
-              <span class="term-title">site sentinel</span>
+              <span class="term-title">website scanner</span>
               <span class="term-label">web scan · AI</span>
             </div>
             <div class="term-body">
               <div class="term-line">
                 <span class="term-prompt" aria-hidden="true">$</span>
-                <input id="siteUrl" type="text" placeholder="https://example.com" spellcheck="false" autocomplete="off" aria-label="Website URL to scan" />
+                <input id="siteUrl" type="text" placeholder="example.com — http:// optional" spellcheck="false" autocomplete="off" aria-label="Website URL to scan" />
                 <button class="tool-btn" id="btnScanSite" type="button">⏎ scan</button>
               </div>
               <div class="term-out"><span class="gh-status" id="siteStatus"></span><span class="term-cursor" aria-hidden="true"></span></div>
@@ -273,6 +290,7 @@
       <span class="footer-tag">Your AI is confident. vibeguard is not.</span>
     </div>
     <div class="footer-links">
+      <a href="https://sajidalam.pages.dev" target="_blank" rel="noopener">Portfolio</a>
       <a href="https://github.com/thesajidalam/vibeguard" target="_blank" rel="noopener">GitHub</a>
       <a href="https://github.com/thesajidalam/vibeguard/issues" target="_blank" rel="noopener">Issues</a>
       <a href="https://guardvibe.vercel.app" target="_blank" rel="noopener">CLI demo</a>

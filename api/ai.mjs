@@ -4,7 +4,7 @@
    Actions:
      - chat   auto-picks a working model (presets + live list) and retries on model errors
      - models lists available models for a provider using your key
-     - fetch  resolves and grabs a public webpage for the Site Sentinel web scan
+     - fetch  resolves and grabs a public webpage for the Website Scanner
               (SSRF-guarded: private/loopback/link-local targets are refused)
    built by @thesajidalam */
 
@@ -226,7 +226,7 @@ async function geminiChat(key, model, messages, opts) {
   return { ok: true, content, model };
 }
 
-/* ---------------- Site Sentinel: guarded page grab ---------------- */
+/* ---------------- Website Scanner: guarded page grab ---------------- */
 
 function isPrivateIP(ip) {
   if (isIP(ip) === 0) return true;

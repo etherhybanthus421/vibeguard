@@ -1,5 +1,5 @@
 /* vibeguard AI Studio — static scanner + AI-powered bug finder, security audit,
-   fixer, deployment review, report generator and the Site Sentinel web scanner.
+   fixer, deployment review, report generator and the Website Scanner.
    Works with free AI API keys (Gemini, Groq, OpenRouter, Cerebras, Mistral,
    GitHub Models, NVIDIA, or any OpenAI-compatible endpoint).
    built by @thesajidalam */
@@ -596,7 +596,7 @@ const MODES = {
   fix: { label: "Fix & explain", ai: true, hint: "AI review — key needed" },
   deploy: { label: "API & deployment", ai: true, hint: "AI review — key needed" },
   report: { label: "Full audit report", ai: true, hint: "AI review — key needed" },
-  site: { label: "Site Sentinel", ai: true, hint: "web scan — key needed" },
+  site: { label: "Website Scanner", ai: true, hint: "web scan — key needed" },
 };
 
 const SYSTEM = {
@@ -611,7 +611,7 @@ const SYSTEM = {
   report:
     "You are vibeguard, producing a comprehensive executive audit report. Output a single Markdown document with: Executive Summary, Risk Score (format exactly 'Risk Score: N/100'), Findings Summary table (Severity | Count), Detailed findings (each with location, line, description, severity and fix), Security vulnerabilities, Deployment & API warnings, Best-practice recommendations, and a Prioritized action plan. Be specific and cite line numbers throughout.",
   site:
-    "You are vibeguard Site Sentinel, a ruthless website security auditor. A live webpage was fetched and its HTML structure, scripts, links, forms, inputs and visible text are shown below. Hunt for real web vulnerabilities: exposed secrets or internal hosts, forms with no CSRF token or insecure submission, plaintext/weak login fields, unvalidated inputs, links to risky or internal URLs, third-party/injected scripts, outdated or suspicious libraries, missing security headers, redirect and SSRF smells, open redirects, information disclosure, admin/debug/staging exposure and anything else an attacker could exploit. Respond in Markdown with: a one-line Risk Score (format exactly 'Risk Score: N/100'), a findings table (columns: Severity | Location | Vulnerability | Exploit risk | Fix), a concrete recommendations list, and a short hardening checklist. Quote the actual URLs, attribute names and strings you found on the page. Be specific and actionable, never vague.",
+    "You are vibeguard Website Scanner, a ruthless website security auditor. A live webpage was fetched and its HTML structure, scripts, links, forms, inputs and visible text are shown below. Hunt for real web vulnerabilities: exposed secrets or internal hosts, forms with no CSRF token or insecure submission, plaintext/weak login fields, unvalidated inputs, links to risky or internal URLs, third-party/injected scripts, outdated or suspicious libraries, missing security headers, redirect and SSRF smells, open redirects, information disclosure, admin/debug/staging exposure and anything else an attacker could exploit. Respond in Markdown with: a one-line Risk Score (format exactly 'Risk Score: N/100'), a findings table (columns: Severity | Location | Vulnerability | Exploit risk | Fix), a concrete recommendations list, and a short hardening checklist. Quote the actual URLs, attribute names and strings you found on the page. Be specific and actionable, never vague.",
 };
 
 function buildUserMessage(files, truncated) {
@@ -948,11 +948,19 @@ async function runAI() {
   }
 }
 
-/* ---------------- Site Sentinel: live web scan ---------------- */
+/* ---------------- Website Scanner: live web scan ---------------- */
+
+function normalizeSiteUrl(raw) {
+  let u = String(raw || "").trim();
+  if (!u) return "";
+  if (!/^[a-z][a-z0-9+.-]*:\/\//i.test(u)) u = "https://" + u;
+  try { const p = new URL(u); return p.href; } catch (e) { return ""; }
+}
 
 async function scanSite() {
-  const url = $("siteUrl").value.trim();
-  if (!url) { toast("Enter a website URL to scan.", "err"); $("siteUrl").focus(); return; }
+  const url = normalizeSiteUrl($("siteUrl").value);
+  if (!url) { toast("Enter a valid website URL — http:// is optional.", "err"); $("siteUrl").focus(); return; }
+  $("siteUrl").value = url;
   const p = providerOf(settings.provider);
   if (!getKey(p.id)) { toast("Paste a free API key first — click the provider panel above.", "err"); return; }
   const statusEl = $("siteStatus");
@@ -960,7 +968,7 @@ async function scanSite() {
   setStatus("resolving " + url + " …", "loading");
   statusEl.textContent = "resolving host…";
   statusEl.className = "gh-status";
-  outputEl.innerHTML = '<div class="empty">// Site Sentinel is resolving the page…</div>';
+  outputEl.innerHTML = '<div class="empty">// Website Scanner is resolving the page…</div>';
   verdictEl.innerHTML = "";
   try {
     const res = await fetch("/api/ai", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "fetch", url }) });
@@ -977,7 +985,7 @@ async function scanSite() {
     ]);
     outputEl.innerHTML = riskBadges(mdRender(ai.content));
     setStatus("via " + ai.model, "");
-    verdictEl.innerHTML = `<div class="verdict clean">Site Sentinel review complete — generated by ${ESC(p.name)}</div>`;
+    verdictEl.innerHTML = `<div class="verdict clean">Website scan complete — generated by ${ESC(p.name)}</div>`;
     lastReport = {
       type: "ai", mode: "site", provider: p.name, model: ai.model,
       markdown: ai.content, url: data.url, title: data.title || "",
@@ -991,6 +999,14 @@ async function scanSite() {
     lastReport = null;
     toast(e.message, "err");
   }
+}
+
+function openSiteScanner(url, autoRun) {
+  setMode("site");
+  if (url) $("siteUrl").value = url;
+  scrollToStudio();
+  setTimeout(() => $("siteUrl").focus(), 60);
+  if (autoRun) setTimeout(() => scanSite(), 140);
 }
 
 /* ---------------- sample / upload / github ---------------- */
@@ -1138,6 +1154,7 @@ function downloadJson() {
 /* ---------------- dynamic sections ---------------- */
 
 const FEATURES = [
+  { t: "Website vulnerability scanner", d: "Type any live URL — no http:// needed. vibeguard resolves the page, grabs its HTML, scripts, forms, links and visible text, then AI audits it for exposed secrets, unsafe forms, risky scripts, missing headers and more." },
   { t: "Instant static scanner", d: "Ten deterministic rules catch the classic false-clean bugs — empty catches, null derefs, leaked keys, invented env vars. Zero setup, zero AI, runs entirely in your browser." },
   { t: "AI bug finder", d: "A connected free model deep-reads your code for logic errors, race conditions, error-handling gaps and wrong API usage — with line-level fixes." },
   { t: "Security audit", d: "OWASP-style review: injection, XSS, SSRF, hardcoded secrets, auth flaws, path traversal, unsafe deserialization and dependency risks." },
@@ -1149,6 +1166,7 @@ const FEATURES = [
   { t: "Private by design", d: "No account, no login, no telemetry. Keys live in your browser; code goes only to the AI provider you chose." },
 ];
 const ICONS = [
+  '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a9 9 0 010 18M12 7a5 5 0 010 10"/><circle cx="12" cy="12" r="1.6" fill="currentColor"/></svg>',
   '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3 8-8"/><path d="M20 12v6a2 2 0 01-2 2H6a2 2 0 01-2-2V6a2 2 0 012-2h9"/></svg>',
   '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4v16h16v-7"/><path d="M17 4h3v3M13.5 10.5L21 3"/></svg>',
   '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3l7 3v5c0 5-3 9-7 10-4-1-7-5-7-10V6l7-3z"/><path d="M9 12l2 2 4-4"/></svg>',
@@ -1163,7 +1181,7 @@ const ICONS = [
 const STEPS = [
   { t: "Connect a free AI model", d: "Pick a provider (Gemini, Groq, OpenRouter, Cerebras, Mistral, GitHub Models, NVIDIA), click Get key, and paste it in. Every one has a genuinely free tier." },
   { t: "Add your code", d: "Paste a snippet, upload files, or drop a public GitHub repo URL. The static scanner works instantly on anything — no key needed." },
-  { t: "Scan and fix", d: "Run any of six modes. Static rules catch the obvious fast; AI audits for deep bugs, vulnerabilities and deployment risks, with fixes." },
+  { t: "Scan and fix", d: "Run any of seven modes. Static rules catch the obvious fast; AI audits for deep bugs, website and code vulnerabilities and deployment risks, with fixes." },
   { t: "Get the report", d: "Download the full report as Markdown, styled HTML, or JSON. Share it with your team, attach it to a ticket, or file it with your release." },
 ];
 
@@ -1316,6 +1334,15 @@ function bindEvents() {
   $("ghUrl").addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); $("btnFetchGh").click(); } });
   $("btnScanSite").addEventListener("click", () => scanSite());
   $("siteUrl").addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); $("btnScanSite").click(); } });
+
+  $("heroSite").addEventListener("submit", (e) => {
+    e.preventDefault();
+    const u = normalizeSiteUrl($("heroSiteUrl").value);
+    openSiteScanner(u, true);
+  });
+  document.querySelectorAll("[data-nav='site']").forEach((a) => {
+    a.addEventListener("click", (e) => { e.preventDefault(); openSiteScanner("", false); });
+  });
 
   codeEl.addEventListener("input", () => {
     if (loadedFiles) loadedFiles = null;
