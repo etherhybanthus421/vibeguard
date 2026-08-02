@@ -70,8 +70,10 @@ offline, and never uploads your code anywhere.
 > 2am self) into the browser and watch vibeguard catch it in real time. It runs entirely in
 > your browser. Nothing leaves your machine. Source lives in [`web/`](web/).
 >
-> **Deploying:** the site is a pure static folder. In Vercel, import this repo and set
-> **Root Directory** to `web` (Framework Preset: *Other*). Every push redeploys automatically.
+> **Deploying:** the site is a pure static folder in `web/`. A root-level `vercel.json`
+> routes everything to it, so a plain Vercel import + push just works — no Root Directory
+> setting required. (Optionally set **Root Directory** to `web` in Vercel → Settings → General
+> instead; both produce the same result.)
 
 ```bash
 vibeguard demo

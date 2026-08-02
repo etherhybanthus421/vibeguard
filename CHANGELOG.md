@@ -8,7 +8,9 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ### Added
 - `web/` — the source of the live interactive landing page at **guardvibe.vercel.app**.
   Paste your own code and watch vibeguard catch it in your browser (faithful client-side
-  port of the rules, zero uploads, zero servers). Includes favicon and Vercel config.
+  port of the rules, zero uploads, zero servers). Includes favicon.
+- Root-level `vercel.json` that routes the static site to `web/`, so the repo deploys to
+  Vercel without changing the Root Directory setting.
 
 ## [1.0.1] - 2026-08-02
 
