@@ -4,11 +4,9 @@
 
 ### Your AI is confident. **vibeguard is not.**
 
-A zero-dependency, deterministic pre-commit guard that catches the **"false-clean" bugs**
-AI models keep shipping — empty `catch {}` blocks, null derefs, invented env vars,
-and the API key that just hit GitHub.
-
-**One install. Every commit. Zero excuses.**
+A zero-dependency **pre-commit guard** plus a browser-based **AI Studio** that
+finds bugs, hunts vulnerabilities, and writes deploy-ready reports for your
+vibe-coded diffs — without ever uploading your keys or your code to our server.
 
 ```
  __      __     _                      _
@@ -26,11 +24,28 @@ and the API key that just hit GitHub.
 [![License](https://img.shields.io/badge/license-MIT-blue)](https://github.com/thesajidalam/vibeguard/blob/main/LICENSE)
 [![CI](https://img.shields.io/github/actions/workflow/status/thesajidalam/vibeguard/ci.yml?branch=main&label=CI)](https://github.com/thesajidalam/vibeguard/actions)
 [![Tests](https://img.shields.io/badge/tests-48%20%2F%2048-passing-brightgreen)](https://github.com/thesajidalam/vibeguard)
-[![Live demo](https://img.shields.io/badge/live%20demo-guardvibe.vercel.app-cyan)](https://guardvibe.vercel.app)
+[![AI Studio](https://img.shields.io/badge/live%20demo-vibeguard.vercel.app-cyan)](https://vibeguard.vercel.app)
 
-**▶ [Try it live in your browser](https://guardvibe.vercel.app) — paste your own code. It runs locally, nothing is uploaded.**
+**▶ [Open the AI Studio](https://vibeguard.vercel.app) — paste code, fetch a repo, or drop in files.**
+**Static scan runs locally in your browser. AI modes need a free key from any of the providers below.**
 
 </div>
+
+---
+
+## Two products, one guard
+
+| | **CLI guard** | **AI Studio** |
+|---|---|---|
+| Where | your terminal, pre-commit | vibeguard.vercel.app |
+| Scan | staged diffs, line by line | whole files, multi-file projects |
+| Verdict | deterministic, offline, instant | static scan + optional AI deep dive |
+| AI | never | 6 modes · 8 free providers |
+| Reports | exit codes 0 / 1 / 2 | download `.md` / `.html` / `.json` |
+| Setup | `npm i -g vibeguard && vibeguard install` | paste a free API key |
+
+Both share the same ten deterministic rules. The Studio adds the extra layer:
+**an LLM that actually disagrees with you.**
 
 ---
 
@@ -48,14 +63,67 @@ But under the polish, the same handful of bugs appear **again and again**:
 | `user.find(...).email` on null | 💥 prod outage at 3am | 🛑 blocked |
 | `process.env.KEY` that never existed | 🔇 dies at runtime | 🛑 blocked |
 | Hardcoded API key | 🚨 on Hacker News | 🛑 blocked |
-| `lorem ipsum`, `your-api-key` | 😅 shipped to customers | ⚠️ warned |
+| Placeholder text, `your-api-key` | 😅 shipped to customers | ⚠️ warned |
 | 800 lines added in one shot | 📖 "trust me, I read it" | ⚠️ flagged |
 
 Most "AI code review" tools are just *another LLM* bolted onto your workflow — slow, costly,
 and happy to agree with you. vibeguard is the opposite: **deterministic, offline, millisecond-fast,
 and it never gives your code a participation trophy.**
 
-## Quick start
+---
+
+## AI Studio
+
+### Six modes
+
+| mode | what it does |
+|---|---|
+| **Static scan** | runs the 10 rules in your browser. No key needed. |
+| **Bug finder** | hunts logic errors, race conditions, and runtime crashes |
+| **Security audit** | looks for injection, secrets, auth gaps, and dependency risks |
+| **Fix & explain** | rewrites the flagged code and explains every change |
+| **API & deployment** | warns about config, secrets, CORS, and deploy blockers |
+| **Full audit report** | the whole package, formatted like a professional security report |
+
+Every AI mode returns a **Risk Score /100** with a severity table
+(Critical / High / Medium / Low) and per-issue fixes.
+
+### Get code in three ways
+
+- **Paste** code straight into the editor
+- **Upload** files (or drag-and-drop a whole folder)
+- **Fetch from GitHub** — paste a repo URL, the Studio pulls the tree via the public API
+  (up to 30 source files) and scans it in one click
+
+### Downloadable reports
+
+After any scan you can download the full report as **Markdown**, styled **HTML**,
+or machine-readable **JSON** — ready to attach to a PR, an issue, or a client.
+
+### Providers (free tiers, no card required)
+
+| provider | key from | models |
+|---|---|---|
+| Google Gemini | [aistudio.google.com/apikey](https://aistudio.google.com/apikey) | `gemini-2.5-flash`, `gemini-2.5-pro` |
+| Groq | [console.groq.com/keys](https://console.groq.com/keys) | `llama-3.3-70b-versatile`, `llama-3.1-8b-instant` |
+| OpenRouter | [openrouter.ai/keys](https://openrouter.ai/keys) | many |
+| Cerebras | [cloud.cerebras.ai](https://cloud.cerebras.ai) | `llama-3.3-70b` |
+| Mistral | [console.mistral.ai/api-keys](https://console.mistral.ai/api-keys/) | `mistral-small-latest` |
+| GitHub Models | fine-grained PAT (`models:read`) | `openai/gpt-4o`, `openai/gpt-4o-mini` |
+| NVIDIA NIM | [build.nvidia.com](https://build.nvidia.com) | `meta/llama-3.3-70b-instruct` |
+| Custom | any OpenAI-compatible endpoint | your models |
+
+### Key security
+
+- Keys are stored **only in `localStorage`** in your browser
+- Requests go **browser → relay → provider**; the relay is stateless, forwards your
+  key to the provider, and **never logs or stores it**
+- Only whitelisted provider endpoints are reachable — the relay can't call anywhere else
+- No keys ever touch our database, because there is no database
+
+---
+
+## Quick start (CLI)
 
 ```bash
 npm install -g vibeguard
@@ -95,7 +163,7 @@ vibeguard check            # scan what's staged (default)
 vibeguard doctor           # is my hook installed? what will it run?
 ```
 
-Or skip the install entirely — the [live demo](https://guardvibe.vercel.app) runs the
+Or skip the install entirely — the [AI Studio](https://vibeguard.vercel.app) runs the
 same rules **in your browser**. Paste your copilot's output. Nothing leaves your machine.
 
 ## The 10 rules
@@ -109,7 +177,7 @@ Tuned for the exact patterns LLMs repeat most. Every rule is configurable.
 | `swallow` | empty `catch {}` / `except: pass` blocks that erase failures | 🔴 error |
 | `nullaccess` | `.find()` / `.querySelector()` / `JSON.parse()` results dereferenced with `.` | 🔴 error |
 | `sleepfix` | `sleep()` hacks in production code that hide races | 🔴 error |
-| `dummy` | `lorem ipsum`, `your-api-key`, `changeme`, `TODO`, `FIXME` | 🟡 warning |
+| `dummy` | placeholder text, `your-api-key`, `changeme`, `TODO`, `FIXME` | 🟡 warning |
 | `debugprint` | `console.log` / `print()` / `debugger` left in non-test code | 🟡 warning |
 | `deadimport` | imports nobody ever uses | 🟡 warning |
 | `minified` | 400+ character lines — minified or pasted blobs | 🟡 warning |
@@ -163,8 +231,9 @@ vibeguard check --json    # drop this into any pipeline
 ## Why it can be trusted
 
 - **Zero dependencies.** A single Node script. No `node_modules`, no supply chain.
-- **Zero LLM.** Deterministic rules. The same input, the same verdict, always.
-- **Zero network.** Never uploads your code. Works on an airplane.
+- **Zero LLM in the guard.** Deterministic rules. The same input, the same verdict, always.
+- **Zero network in the CLI.** Never uploads your code. Works on an airplane.
+- **Keys never touch our server.** The Studio relay is a blind forwarder, nothing more.
 - **Zero cost.** MIT licensed. Free forever. Star it if it earns it.
 
 ## Dogfooding
@@ -189,6 +258,6 @@ why this exists — come make it sharper. `CONTRIBUTING.md`, `CODE_OF_CONDUCT.md
 
 built with ❤️ by [@thesajidalam](https://github.com/thesajidalam) · MIT licensed ·
 [docs](https://github.com/thesajidalam/vibeguard) · [issues](https://github.com/thesajidalam/vibeguard/issues) ·
-[live demo](https://guardvibe.vercel.app)
+[AI Studio](https://vibeguard.vercel.app)
 
 </div>

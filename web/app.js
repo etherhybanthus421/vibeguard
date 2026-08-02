@@ -1,19 +1,32 @@
-/* vibeguard web demo — a faithful client-side port of the CLI's 10 rules.
-   Everything runs in your browser. Nothing is uploaded. No telemetry.
+/* vibeguard AI Studio — static scanner + AI-powered bug finder, security audit,
+   fixer, deployment review and report generator.
+   Works with free AI API keys (Gemini, Groq, OpenRouter, Cerebras, Mistral,
+   GitHub Models, NVIDIA, or any OpenAI-compatible endpoint).
    built by @thesajidalam */
 
 const $ = (id) => document.getElementById(id);
 const codeEl = $("code");
-const outputEl = $("output");
+const outputEl = $("resContent");
 const gutterEl = $("gutter");
-const statusEl = $("status");
-const titleEl = $("termTitle");
-const rulesGrid = $("rulesGrid");
+const statusEl = $("resStatus");
+const titleEl = $("resTitle");
+const verdictEl = $("verdict");
 
 const ESC = (s) =>
-  s.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+  String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 
 const escRe = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+let toastTimer = null;
+function toast(msg, kind) {
+  const t = $("toast");
+  t.textContent = msg;
+  t.className = "toast show" + (kind ? " " + kind : "");
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove("show"), 3200);
+}
+
+/* ---------------- static rules (faithful port of the CLI) ---------------- */
 
 function stripComments(text) {
   const strings = [];
@@ -21,7 +34,7 @@ function stripComments(text) {
     /"(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*'|`(?:[^`\\]|\\.)*`/g,
     (m) => {
       strings.push(m);
-      return `\u0000${strings.length - 1}\u0001`;
+      return "\u0000" + (strings.length - 1) + "\u0001";
     }
   );
   const clean = masked
@@ -32,14 +45,29 @@ function stripComments(text) {
   return clean.replace(/\u0000(\d+)\u0001/g, (_, i) => strings[+i]);
 }
 
-const trimToken = (s) => (s.length <= 24 ? s : s.slice(0, 12) + "…" + s.slice(-8));
+const CODE_EXTS = /\.(js|mjs|cjs|jsx|ts|tsx|vue|svelte|py|go|java|kt|kts|rb|php|c|h|cpp|hpp|cs|rs|swift|sh|bash|zsh|pl|lua|scala|ex|exs|dart)$/i;
+const JS_EXTS = /\.(js|mjs|cjs|jsx|ts|tsx)$/i;
+const CATCHABLE_EXTS = /\.(js|mjs|cjs|jsx|ts|tsx|py|java|kt|kts|php|rb|swift|cs|scala)$/i;
+const SLEEP_EXTS = /\.(py|java|kt|kts|js|mjs|cjs|jsx|ts|tsx)$/i;
+const CONFIG_EXTS = /\.(json|yml|yaml|toml|xml|ini|conf)$/i;
+const LANG = {
+  js: "js", mjs: "js", cjs: "js", jsx: "jsx", ts: "ts", tsx: "tsx", py: "py", go: "go",
+  java: "java", kt: "kt", rb: "rb", php: "php", c: "c", cpp: "cpp", rs: "rs",
+  swift: "swift", sh: "sh", bash: "bash", yaml: "yaml", yml: "yaml", json: "json",
+};
 
+function isTestFile(name) {
+  const base = name.replace(/\\/g, "/");
+  const file = base.split("/").pop();
+  return /(^|\/)(__tests__|tests?|specs?)(\/|\.|$)/i.test(base) || /\.(test|spec)\.[a-z0-9]+$/i.test(base) || /(^|[._-])(test|spec)([._-]|$)/i.test(file);
+}
+
+const trimToken = (s) => (s.length <= 24 ? s : s.slice(0, 12) + "…" + s.slice(-8));
 function isPlaceholderValue(v) {
   const low = v.toLowerCase();
   if (low.length < 20 || /\.{3,}$/.test(low)) return true;
   return ["example", "placeholder", "changeme", "your_", "your-", "yourkey", "xxx", "dummy", "fake", "test", "<", ">", "redacted", "insert"].some((t) => low.includes(t));
 }
-
 const SECRET_PATTERNS = [
   { name: "OpenAI-style API key", re: /\bsk-[A-Za-z0-9_-]{20,}\b/ },
   { name: "GitHub personal access token", re: /\bghp_[A-Za-z0-9]{30,}\b/ },
@@ -50,7 +78,7 @@ const SECRET_PATTERNS = [
   { name: "private key material", re: /-----BEGIN (?:RSA |EC |OPENSSH |DSA )?PRIVATE KEY-----/ },
   { name: "JWT-shaped token", re: /\beyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{5,}\b/ },
 ];
-const SECRET_ASSIGN_PATTERNS = [
+const SECRET_ASSIGN = [
   { name: "hardcoded API key", re: /\b(?:api[_-]?key|apikey|client[_-]?secret|access[_-]?token|secret[_-]?key)\s*[:=]\s*["'][^"'\s]{8,}["']/i },
   { name: "hardcoded password", re: /\bpassword\s*[:=]\s*["'][^"'\s]{8,}["']/i },
   { name: "hardcoded bearer token", re: /["']Bearer [A-Za-z0-9_.-]{20,}["']/ },
@@ -83,7 +111,7 @@ const SLEEP_PATTERNS = [
   { name: "time.sleep", re: /\btime\.sleep\s*\(/ },
   { name: "Thread.sleep", re: /\bThread\.sleep\s*\(/ },
   { name: "asyncio.sleep", re: /\bawait\s+asyncio\.sleep\s*\(/ },
-  { name: "setTimeout-based wait", re: /await\s+new\s+Promise\s*\(\s*\(?r\)?\s*=>\s*setTimeout\s*\([^)]*r\s*,/ },
+  { name: "setTimeout wait", re: /await\s+new\s+Promise\s*\(\s*\(?r\)?\s*=>\s*setTimeout\s*\([^)]*r\s*,/ },
   { name: "long sleep()", re: /\bsleep\s*\(\s*\d{3,}\s*\)/ },
 ];
 const DEBUG_PATTERNS = [
@@ -129,290 +157,502 @@ function extractImportNames(text) {
   return names;
 }
 
-const RULES = [
-  {
-    id: "secret", sev: "error",
-    title: "Hardcoded secrets",
-    desc: "OpenAI keys, GitHub PATs, AWS keys, JWTs, private keys — flagged the second they land in a diff.",
-    run(lines, push) {
-      for (let i = 0; i < lines.length; i++) {
-        const text = lines[i];
-        let flagged = false;
-        for (const p of SECRET_PATTERNS) {
-          const m = text.match(p.re);
-          if (m && !isPlaceholderValue(m[0])) {
-            push(i + 1, this.id, `hardcoded ${p.name} "${trimToken(m[0])}"`, this.sev);
-            flagged = true;
-            break;
-          }
+function scanFile(name, lines, findings, opts) {
+  const push = (line, rule, message, sev) => findings.push({ file: name, line, rule, message, sev });
+  const isPy = /\.py$/.test(name);
+  const isJs = JS_EXTS.test(name);
+
+  for (let i = 0; i < lines.length; i++) {
+    const text = lines[i];
+    const line = i + 1;
+    const code = stripComments(text);
+
+    if (CODE_EXTS.test(name) || CONFIG_EXTS.test(name)) {
+      let flagged = false;
+      for (const p of SECRET_PATTERNS) {
+        const m = text.match(p.re);
+        if (m && !isPlaceholderValue(m[0])) {
+          push(line, "secret", `hardcoded ${p.name} "${trimToken(m[0])}"`, "error");
+          flagged = true;
+          break;
         }
-        if (flagged) continue;
-        for (const p of SECRET_ASSIGN_PATTERNS) {
+      }
+      if (!flagged) {
+        for (const p of SECRET_ASSIGN) {
           const m = text.match(p.re);
           if (m && !isPlaceholderValue(text)) {
-            push(i + 1, this.id, `${p.name} "${trimToken(m[0])}"`, this.sev);
+            push(line, "secret", `${p.name} "${trimToken(m[0])}"`, "error");
             break;
           }
         }
       }
-    },
-  },
-  {
-    id: "envhole", sev: "error",
-    title: "Invented env vars",
-    desc: "Reads process.env / os.getenv with no default and no fallback — the classic LLM hallucination.",
-    run(lines, push) {
-      for (let i = 0; i < lines.length; i++) {
-        const code = stripComments(lines[i]);
-        for (const reader of ENV_READERS) {
-          reader.re.lastIndex = 0;
-          let m;
-          while ((m = reader.re.exec(code)) !== null) {
-            const key = m[1];
-            if (!key || BUILTIN_ENV.has(key)) continue;
-            if (reader.needsDefault && m[2] !== undefined) continue;
-            const after = code.slice(reader.re.lastIndex);
-            if (/\?\?|\|\|/.test(after)) continue;
-            push(i + 1, this.id, `reads "${key}" but it is never declared and has no fallback — add it to your .env.example`, this.sev);
-            break;
-          }
-          if (findingsLen(push._list, i + 1, this.id)) break;
-        }
-      }
-    },
-  },
-  {
-    id: "swallow", sev: "error",
-    title: "Empty catch blocks",
-    desc: "catch {} / except: pass silently erases failures. The most common 'looks fixed' pattern in AI output.",
-    run(lines, push) {
-      let pending = null;
-      let pyPending = null;
-      for (let i = 0; i < lines.length; i++) {
-        const text = lines[i];
-        if (CATCH_EMPTY_SINGLE.test(text) || CATCH_EMPTY_SINGLE2.test(text)) {
-          push(i + 1, this.id, "empty catch block — a failure just got silently erased", this.sev);
-          continue;
-        }
-        if (EXCEPT_EMPTY_SINGLE.test(text)) {
-          push(i + 1, this.id, "except branch only passes — the failure is being eaten silently", this.sev);
-          continue;
-        }
-        if (CATCH_OPEN.test(text) || CATCH_OPEN2.test(text)) {
-          pending = { line: i + 1, depth: 1, foundCode: false };
-          continue;
-        }
-        if (pending) {
-          const stripped = text.replace(/\/\/.*$/g, "").trim();
-          for (const ch of stripped) {
-            if (ch === "{") pending.depth++;
-            else if (ch === "}") pending.depth--;
-          }
-          if (stripped.length > 0 && !/^[\{\}]+$/.test(stripped)) pending.foundCode = true;
-          if (pending.depth <= 0) {
-            if (!pending.foundCode) push(pending.line, this.id, "empty catch block — a failure just got silently erased", this.sev);
-            pending = null;
-          }
-          continue;
-        }
-        if (EXCEPT_OPEN.test(text)) { pyPending = { line: i + 1 }; continue; }
-        if (pyPending) {
-          const stripped = text.replace(/#.*$/g, "").trim();
-          if (stripped !== "") {
-            if (/^pass\b/.test(stripped)) push(pyPending.line, this.id, "except branch only passes — the failure is being eaten silently", this.sev);
-            pyPending = null;
-          }
-        }
-      }
-    },
-  },
-  {
-    id: "nullaccess", sev: "error",
-    title: "Null derefs",
-    desc: "Results of .find() / .querySelector() / JSON.parse() accessed with '.' but never checked for null.",
-    run(lines, push) {
-      const risky = new Map();
-      const checked = new Set();
-      for (let i = 0; i < lines.length; i++) {
-        const text = lines[i];
-        const m = text.match(DECL_RISKY);
-        if (m) {
-          const name = m[1];
-          const idx = text.indexOf(name + "=");
-          const after = text.slice(idx + name.length + 1);
-          if (/\?\?|\?\./.test(after)) continue;
-          risky.set(name, { line: i + 1, hint: m[2] ? "." + m[2] + "()" : "JSON.parse()" });
-          if (/\.(find|findLast|first|query|querySelector|getElementById|match|matchAll|pop|shift|next)\([^)]*\)\.[A-Za-z_$]|JSON\.parse\([^)]*\)\.[A-Za-z_$]/.test(text)) {
-            push(i + 1, this.id, 'a nullable result is accessed directly with "." — add optional chaining (?.) or a null check', this.sev);
-          }
-        }
-        for (const name of risky.keys()) {
-          if (new RegExp(`!${escRe(name)}\\b|${escRe(name)}\\s*==\\s*null|${escRe(name)}\\s*===\\s*null|${escRe(name)}\\s*\\?\\?`).test(text)) checked.add(name);
-        }
-      }
-      for (const [name, meta] of risky) {
-        if (checked.has(name)) continue;
-        for (let i = 0; i < lines.length; i++) {
-          if (i + 1 === meta.line) continue;
-          const text = lines[i];
-          if (new RegExp(`\\b${escRe(name)}\\?\\?`).test(text)) continue;
-          if (new RegExp(`\\b${escRe(name)}\\?\\.`).test(text)) continue;
-          if (new RegExp(`\\b${escRe(name)}\\.`).test(text)) {
-            push(i + 1, this.id, `"${name}" can be null (from a ${meta.hint} call) but is accessed as "${name}.x" with no check`, this.sev);
-            break;
-          }
-        }
-      }
-    },
-  },
-  {
-    id: "sleepfix", sev: "error",
-    title: "Sleep() 'fixes'",
-    desc: "time.sleep / Thread.sleep / setTimeout waits in production code — usually papering over a race, not fixing it.",
-    run(lines, push) {
-      for (let i = 0; i < lines.length; i++) {
-        for (const p of SLEEP_PATTERNS) {
-          if (p.re.test(lines[i])) {
-            push(i + 1, this.id, `${p.name} in non-test code — usually an AI "fix" that hides a race instead of solving it`, this.sev);
-            break;
-          }
-        }
-      }
-    },
-  },
-  {
-    id: "debugprint", sev: "warning",
-    title: "Debug leftovers",
-    desc: "console.log, print(), debugger — evidence that the code was run once, looked at, and never cleaned up.",
-    run(lines, push) {
-      for (let i = 0; i < lines.length; i++) {
-        for (const p of DEBUG_PATTERNS) {
-          if (p.re.test(lines[i])) {
-            push(i + 1, this.id, `${p.name} left in non-test code`, this.sev);
-            break;
-          }
-        }
-      }
-    },
-  },
-  {
-    id: "dummy", sev: "warning",
-    title: "Placeholder text",
-    desc: "lorem ipsum, changeme, your-api-key, TODO/FIXME/HACK — the code was templated, not written.",
-    run(lines, push) {
-      for (let i = 0; i < lines.length; i++) {
-        for (const p of DUMMY_PATTERNS) {
-          if (p.re.test(stripComments(lines[i]))) {
-            const extra = /TODO|FIXME|HACK/.test(p.name) ? " — sure this was meant to ship?" : " left in the diff";
-            push(i + 1, this.id, p.name + extra, this.sev);
-            break;
-          }
-        }
-      }
-    },
-  },
-  {
-    id: "minified", sev: "warning",
-    title: "Minified / blob lines",
-    desc: "400+ character lines are unreadable and unreviewable. If it came from an AI, split it — and read it.",
-    run(lines, push) {
-      for (let i = 0; i < lines.length; i++) {
-        const trimmed = lines[i].trim();
-        if (trimmed.length <= MAX_LINE_LEN) continue;
-        if (/^(#|\/\/|\/\*|\*)/.test(trimmed)) continue;
-        push(i + 1, this.id, `line is ${trimmed.length} characters — minified or pasted blob, painful to review`, this.sev);
-      }
-    },
-  },
-  {
-    id: "deadimport", sev: "warning",
-    title: "Dead imports",
-    desc: "Imported names never used anywhere in the file. Harmless to the build, telling about the author.",
-    run(lines, push) {
-      const source = lines.join("\n");
-      for (let i = 0; i < lines.length; i++) {
-        const text = lines[i];
-        if (!/(^|\s)import\s|\brequire\(/.test(text)) continue;
-        for (const name of extractImportNames(text)) {
-          if (!name) continue;
-          const lineHits = (text.match(new RegExp(`\\b${escRe(name)}\\b`, "g")) || []).length;
-          const totalHits = (source.match(new RegExp(`\\b${escRe(name)}\\b`, "g")) || []).length;
-          if (totalHits <= lineHits) push(i + 1, this.id, `"${name}" is imported but never used`, this.sev);
-        }
-      }
-    },
-  },
-  {
-    id: "bignew", sev: "warning",
-    title: "One-shot files",
-    desc: "800+ lines pasted in a single stroke. AI loves a whole-file rewrite; review it like you own it.",
-    run(lines, push) {
-      if (lines.length > BIG_NEW_FILE) {
-        push(1, this.id, `${lines.length} lines added in one shot — AI loves to one-shot a whole file. Review it like you own it.`, this.sev);
-      }
-    },
-  },
-];
+    }
 
-function findingsLen(list, line, rule) {
-  return list.some((f) => f.line === line && f.rule === rule);
+    if (CODE_EXTS.test(name)) {
+      for (const reader of ENV_READERS) {
+        reader.re.lastIndex = 0;
+        let m;
+        while ((m = reader.re.exec(code)) !== null) {
+          const key = m[1];
+          if (!key || BUILTIN_ENV.has(key)) continue;
+          if (reader.needsDefault && m[2] !== undefined) continue;
+          const after = code.slice(reader.re.lastIndex);
+          if (/\?\?|\|\|/.test(after)) continue;
+          push(line, "envhole", `reads "${key}" but it is never declared and has no fallback — add it to your .env.example`, "error");
+          break;
+        }
+        if (findings.length && findings[findings.length - 1].line === line && findings[findings.length - 1].file === name) break;
+      }
+    }
+
+    if (CATCHABLE_EXTS.test(name)) {
+      if (CATCH_EMPTY_SINGLE.test(text) || CATCH_EMPTY_SINGLE2.test(text)) {
+        push(line, "swallow", "empty catch block — a failure just got silently erased", "error");
+      } else if (EXCEPT_EMPTY_SINGLE.test(text)) {
+        push(line, "swallow", "except branch only passes — the failure is being eaten silently", "error");
+      }
+    }
+
+    if (SLEEP_EXTS.test(name) && !isTestFile(name)) {
+      for (const p of SLEEP_PATTERNS) {
+        if (p.re.test(text)) {
+          push(line, "sleepfix", `${p.name} in non-test code — usually an AI "fix" that hides a race instead of solving it`, "error");
+          break;
+        }
+      }
+    }
+
+    if (CODE_EXTS.test(name) && !isTestFile(name)) {
+      for (const p of DEBUG_PATTERNS) {
+        if (p.re.test(text)) {
+          push(line, "debugprint", `${p.name} left in non-test code`, "warning");
+          break;
+        }
+      }
+    }
+
+    if (CODE_EXTS.test(name) || CONFIG_EXTS.test(name)) {
+      for (const p of DUMMY_PATTERNS) {
+        if (p.re.test(code)) {
+          const extra = /TODO|FIXME|HACK/.test(p.name) ? " — sure this was meant to ship?" : " left in the diff";
+          push(line, "dummy", p.name + extra, "warning");
+          break;
+        }
+      }
+      const trimmed = text.trim();
+      if (trimmed.length > MAX_LINE_LEN && !/^(#|\/\/|\/\*|\*)/.test(trimmed)) {
+        push(line, "minified", `line is ${trimmed.length} characters — minified or pasted blob, painful to review`, "warning");
+      }
+    }
+  }
+
+  if (isJs) {
+    const risky = new Map();
+    const checked = new Set();
+    for (let i = 0; i < lines.length; i++) {
+      const text = lines[i];
+      const m = text.match(DECL_RISKY);
+      if (m) {
+        const nm = m[1];
+        const idx = text.indexOf(nm + "=");
+        const after = text.slice(idx + nm.length + 1);
+        if (/\?\?|\?\./.test(after)) continue;
+        risky.set(nm, { line: i + 1, hint: m[2] ? "." + m[2] + "()" : "JSON.parse()" });
+        if (/\.(find|findLast|first|query|querySelector|getElementById|match|matchAll|pop|shift|next)\([^)]*\)\.[A-Za-z_$]|JSON\.parse\([^)]*\)\.[A-Za-z_$]/.test(text)) {
+          push(i + 1, "nullaccess", 'a nullable result is accessed directly with "." — add optional chaining (?.) or a null check', "error");
+        }
+      }
+      for (const nm of risky.keys()) {
+        if (new RegExp(`!${escRe(nm)}\\b|${escRe(nm)}\\s*==\\s*null|${escRe(nm)}\\s*===\\s*null|${escRe(nm)}\\s*\\?\\?`).test(text)) checked.add(nm);
+      }
+    }
+    for (const [nm, meta] of risky) {
+      if (checked.has(nm)) continue;
+      for (let i = 0; i < lines.length; i++) {
+        if (i + 1 === meta.line) continue;
+        const text = lines[i];
+        if (new RegExp(`\\b${escRe(nm)}\\?\\?`).test(text)) continue;
+        if (new RegExp(`\\b${escRe(nm)}\\?\\.`).test(text)) continue;
+        if (new RegExp(`\\b${escRe(nm)}\\.`).test(text)) {
+          push(i + 1, "nullaccess", `"${nm}" can be null (from a ${meta.hint} call) but is accessed as "${nm}.x" with no check`, "error");
+          break;
+        }
+      }
+    }
+  }
+
+  if (JS_EXTS.test(name) || isPy) {
+    const source = lines.join("\n");
+    for (let i = 0; i < lines.length; i++) {
+      const text = lines[i];
+      if (!/(^|\s)import\s|\brequire\(/.test(text)) continue;
+      for (const nm of extractImportNames(text)) {
+        if (!nm) continue;
+        const lineHits = (text.match(new RegExp(`\\b${escRe(nm)}\\b`, "g")) || []).length;
+        const totalHits = (source.match(new RegExp(`\\b${escRe(nm)}\\b`, "g")) || []).length;
+        if (totalHits <= lineHits) push(i + 1, "deadimport", `"${nm}" is imported but never used`, "warning");
+      }
+    }
+  }
+
+  if (opts && opts.newFile && lines.length > BIG_NEW_FILE) {
+    push(1, "bignew", `${lines.length} lines added in one shot — AI loves to one-shot a whole file. Review it like you own it.`, "warning");
+  }
 }
 
-function analyze() {
-  const source = codeEl.value;
-  const lines = source.split(/\r?\n/);
+function scanFiles(files, opts) {
   const findings = [];
-
-  const push = (line, rule, message, sev) => findings.push({ line, rule, message, sev });
-  for (const r of RULES) {
-    r._list = findings;
-    r.run(lines, push);
+  for (const f of files) {
+    const lines = f.text.split(/\r?\n/);
+    scanFile(f.name, lines, findings, opts);
   }
-  findings.sort((a, b) => a.line - b.line || RULES.findIndex((r) => r.id === a.rule) - RULES.findIndex((r) => r.id === b.rule));
+  findings.sort((a, b) => a.file.localeCompare(b.file) || a.line - b.line);
+  return findings;
+}
 
-  renderGutter(lines, findings);
+/* ---------------- markdown renderer (safe, dependency-free) ---------------- */
+
+function inline(s) {
+  return s
+    .replace(/`([^`]+)`/g, (_, c) => "<code>" + c + "</code>")
+    .replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>")
+    .replace(/__([^_]+)__/g, "<strong>$1</strong>")
+    .replace(/\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>')
+    .replace(/\*([^*]+)\*/g, "<em>$1</em>");
+}
+
+function mdRender(src) {
+  const raw = String(src || "").replace(/\r\n/g, "\n");
+  const lines = ESC(raw).split("\n");
+  let html = "";
+  const stack = [];
+  const closeLists = (depth) => { while (stack.length > depth) html += "</" + stack.pop() + ">"; };
+  let i = 0;
+
+  while (i < lines.length) {
+    const line = lines[i];
+
+    if (line.trim() === "") { i++; continue; }
+
+    if (/^```/.test(line)) {
+      closeLists(0);
+      const lang = line.slice(3).trim();
+      const buf = [];
+      i++;
+      while (i < lines.length && !/^```/.test(lines[i])) { buf.push(lines[i]); i++; }
+      i++;
+      html += '<pre><code' + (lang ? ' class="lang-' + lang.replace(/[^a-z0-9]/gi, "") + '"' : "") + ">" + buf.join("\n") + "</code></pre>";
+      continue;
+    }
+
+    if (/^\|.+\|$/.test(line) && i + 1 < lines.length && /^\|?[\s:|-]+\|?$/.test(lines[i + 1]) && lines[i + 1].includes("-")) {
+      closeLists(0);
+      const parseRow = (r) => r.replace(/^\||\|$/g, "").split("|").map((c) => c.trim());
+      const head = parseRow(line);
+      i += 2;
+      const rows = [];
+      while (i < lines.length && /^\|.+\|$/.test(lines[i])) { rows.push(parseRow(lines[i])); i++; }
+      html += "<table><thead><tr>" + head.map((h) => "<th>" + inline(h) + "</th>").join("") + "</tr></thead><tbody>";
+      for (const r of rows) html += "<tr>" + r.map((c) => "<td>" + inline(c) + "</td>").join("") + "</tr>";
+      html += "</tbody></table>";
+      continue;
+    }
+
+    const h = line.match(/^(#{1,6})\s+(.*)$/);
+    if (h) {
+      closeLists(0);
+      const lvl = h[1].length;
+      html += "<h" + lvl + ">" + inline(h[2]) + "</h" + lvl + ">";
+      i++;
+      continue;
+    }
+
+    if (/^---+$/.test(line) || /^\*{3,}$/.test(line)) { closeLists(0); html += "<hr>"; i++; continue; }
+
+    if (/^>\s?/.test(line)) {
+      closeLists(0);
+      const buf = [];
+      while (i < lines.length && /^>\s?/.test(lines[i])) { buf.push(lines[i].replace(/^>\s?/, "")); i++; }
+      html += "<blockquote>" + inline(buf.join("<br>")) + "</blockquote>";
+      continue;
+    }
+
+    const ul = line.match(/^(\s*)[-*+]\s+(.*)$/);
+    const ol = line.match(/^(\s*)\d+[.)]\s+(.*)$/);
+    if (ul || ol) {
+      const m = ul || ol;
+      const tag = ul ? "ul" : "ol";
+      const depth = Math.floor(m[1].length / 2);
+      while (stack.length < depth + 1) { stack.push(tag); html += "<" + tag + ">"; }
+      while (stack.length > depth + 1) { html += "</" + stack.pop() + ">"; }
+      if (stack[stack.length - 1] !== tag) { html += "</" + stack.pop() + ">"; stack.push(tag); html += "<" + tag + ">"; }
+      html += "<li>" + inline(m[2]) + "</li>";
+      i++;
+      while (i < lines.length && lines[i].trim() === "" && i + 1 < lines.length && /^(\s*)[-*+]|^(\s*)\d+[.)]/.test(lines[i + 1])) i++;
+      continue;
+    }
+
+    closeLists(0);
+    const buf = [];
+    while (
+      i < lines.length &&
+      lines[i].trim() !== "" &&
+      !/^```/.test(lines[i]) &&
+      !/^#{1,6}\s/.test(lines[i]) &&
+      !/^(\s*)[-*+]\s/.test(lines[i]) &&
+      !/^(\s*)\d+[.)]\s/.test(lines[i])
+    ) {
+      buf.push(lines[i]);
+      i++;
+    }
+    if (buf.length) html += "<p>" + buf.map((b) => inline(b)).join("<br>") + "</p>";
+  }
+  closeLists(0);
+  return '<div class="md">' + html + "</div>";
+}
+
+function riskBadges(html) {
+  return html.replace(/(<h[1-6][^>]*>)([^<]*?)(<\/h[1-6]>)/gi, (m, open, txt, close) => {
+    let mm = txt.match(/Risk\s*Score\s*:?\s*(\d+)\s*\/\s*100/i) || txt.match(/Risk\s*:?\s*(\d+)\s*\/\s*100/i);
+    if (mm) {
+      const v = +mm[1];
+      const cls = v >= 70 ? "high" : v >= 40 ? "med" : "low";
+      return open + txt.replace(mm[0], '<span class="risk-badge risk-' + cls + '">' + mm[0] + "</span>") + close;
+    }
+    mm = txt.match(/Risk\s*Level\s*:?\s*(Critical|High|Medium|Low)/i);
+    if (mm) {
+      const cls = /critical|high/i.test(mm[1]) ? "high" : /medium/i.test(mm[1]) ? "med" : "low";
+      return open + txt.replace(mm[0], '<span class="risk-badge risk-' + cls + '">' + mm[0] + "</span>") + close;
+    }
+    return m;
+  });
+}
+
+/* ---------------- providers & settings ---------------- */
+
+const PROVIDERS = [
+  { id: "gemini", name: "Google Gemini", color: "#4285F4", free: "Free tier · no card", base: "https://generativelanguage.googleapis.com/v1beta/openai", keyLink: "https://aistudio.google.com/apikey", keyLabel: "Get a free Gemini key", models: ["gemini-2.5-flash", "gemini-2.5-flash-lite", "gemini-2.5-pro", "gemini-3-flash-preview"], note: "The most accessible frontier model with a genuinely free tier and huge context. Recommended default." },
+  { id: "groq", name: "Groq", color: "#F55036", free: "Free tier · no card", base: "https://api.groq.com/openai/v1", keyLink: "https://console.groq.com/keys", keyLabel: "Get a free Groq key", models: ["llama-3.3-70b-versatile", "llama-3.1-8b-instant", "gemma2-9b-it", "qwen3-coder-30b"], note: "Blazing-fast LPU inference. Great for quick scans and near-instant reports." },
+  { id: "openrouter", name: "OpenRouter", color: "#6461FF", free: "Free models · no card", base: "https://openrouter.ai/api/v1", keyLink: "https://openrouter.ai/keys", keyLabel: "Get a free OpenRouter key", models: ["google/gemini-2.5-flash:free", "meta-llama/llama-3.3-70b-instruct:free", "qwen/qwen3-coder:free", "deepseek/deepseek-chat-v3-0324:free"], note: "One key, 20+ free models. Perfect fallback when another provider rate-limits you." },
+  { id: "cerebras", name: "Cerebras", color: "#06B6D4", free: "~1M tokens/day · no card", base: "https://api.cerebras.ai/v1", keyLink: "https://cloud.cerebras.ai", keyLabel: "Get a free Cerebras key", models: ["llama-3.3-70b", "llama-3.1-8b", "gpt-oss-120b", "qwen3-coder-235b-a3b"], note: "Very high throughput and long context. Generous daily free volume." },
+  { id: "mistral", name: "Mistral", color: "#F7A600", free: "Free experiment tier", base: "https://api.mistral.ai/v1", keyLink: "https://console.mistral.ai/api-keys/", keyLabel: "Get a free Mistral key", models: ["codestral-latest", "open-mistral-nemo", "mistral-small-latest"], note: "Strong dedicated coding models like Codestral." },
+  { id: "github", name: "GitHub Models", color: "#8B949E", free: "Free for prototyping", base: "https://models.github.ai/inference", keyLink: "https://github.com/settings/tokens", keyLabel: "Create a GitHub PAT (models:read)", models: ["openai/gpt-4o", "openai/gpt-4.1", "meta/llama-3.3-70b-instruct", "deepseek/deepseek-chat"], note: "Works with any GitHub account. The key is a fine-grained PAT with the models:read scope." },
+  { id: "nvidia", name: "NVIDIA NIM", color: "#76B900", free: "Free credits", base: "https://integrate.api.nvidia.com/v1", keyLink: "https://build.nvidia.com", keyLabel: "Get free credits on NVIDIA", models: ["meta/llama-3.3-70b-instruct", "nvidia/llama-3.1-nemotron-70b-instruct"], note: "Free credits to try a wide catalog of open models." },
+  { id: "custom", name: "Custom (OpenAI-compatible)", color: "#22d3ee", free: "Bring your own", base: "", keyLink: "", keyLabel: "", models: [""], note: "Any OpenAI-compatible endpoint — add your base URL and model id." },
+];
+
+const STORE_KEYS = "vbg_keys";
+const STORE_SETTINGS = "vbg_settings";
+const STORE_CUSTOM = "vbg_custom";
+
+function loadKeys() { try { return JSON.parse(localStorage.getItem(STORE_KEYS)) || {}; } catch (e) { return {}; } }
+function saveKeys(k) { localStorage.setItem(STORE_KEYS, JSON.stringify(k)); }
+function getKey(pid) { return loadKeys()[pid] || ""; }
+function setKey(pid, v) { const k = loadKeys(); if (v) k[pid] = v; else delete k[pid]; saveKeys(k); }
+function loadSettings() {
+  try {
+    const s = JSON.parse(localStorage.getItem(STORE_SETTINGS)) || {};
+    const custom = JSON.parse(localStorage.getItem(STORE_CUSTOM)) || {};
+    return { provider: s.provider || "gemini", model: s.model || "", temp: s.temp == null ? 0.2 : s.temp, customBase: custom.base || "", customModel: custom.model || "" };
+  } catch (e) { return { provider: "gemini", model: "", temp: 0.2, customBase: "", customModel: "" }; }
+}
+function saveSettings(s) {
+  localStorage.setItem(STORE_SETTINGS, JSON.stringify({ provider: s.provider, model: s.model, temp: s.temp }));
+  localStorage.setItem(STORE_CUSTOM, JSON.stringify({ base: s.customBase, model: s.customModel }));
+}
+
+let settings = loadSettings();
+
+function providerOf(id) { return PROVIDERS.find((p) => p.id === id) || PROVIDERS[0]; }
+
+function renderProviderSelect() {
+  const sel = $("providerSel");
+  sel.innerHTML = PROVIDERS.map((p) => `<option value="${p.id}">${ESC(p.name)} — ${ESC(p.free)}</option>`).join("");
+  sel.value = settings.provider;
+}
+function renderModelSelect() {
+  const sel = $("modelSel");
+  const p = providerOf(settings.provider);
+  sel.innerHTML = (p.models && p.models.length ? p.models : [""]).map((m) => `<option value="${ESC(m)}">${ESC(m)}</option>`).join("");
+  if (p.models.includes(settings.model)) sel.value = settings.model;
+  else if (p.models.length) sel.value = p.models[0];
+  $("customRow").hidden = p.id !== "custom";
+  if (p.id === "custom") {
+    $("customBase").value = settings.customBase;
+    $("customModel").value = settings.customModel;
+  }
+}
+function syncProviderUI() {
+  const p = providerOf(settings.provider);
+  const key = getKey(p.id);
+  $("apiKey").value = key;
+  const link = $("keyLink");
+  if (p.keyLink) { link.href = p.keyLink; link.textContent = p.keyLabel + " →"; link.style.display = ""; }
+  else link.style.display = "none";
+  renderModelSelect();
+  updateProviderState();
+}
+function updateProviderState() {
+  const p = providerOf(settings.provider);
+  const has = !!getKey(p.id);
+  $("providerState").textContent = has ? p.name + " connected" : "no key set — static scan only";
+  $("keyStatus").textContent = has
+    ? "Key stored only in this browser. Sent straight to " + p.name + " via the relay — never logged or stored on vibeguard."
+    : "Keys are stored only in your browser and sent straight to the provider. Never shared, never logged.";
+}
+
+/* ---------------- AI relay ---------------- */
+
+async function callAI(messages, opts) {
+  const p = providerOf(settings.provider);
+  const key = getKey(p.id);
+  if (!key) throw new Error("Paste a free API key first — click the provider panel above.");
+  const body = {
+    provider: p.id,
+    model: settings.model,
+    key,
+    messages,
+    temperature: settings.temp,
+    max_tokens: (opts && opts.max_tokens) || 8192,
+  };
+  if (p.id === "custom") {
+    if (!settings.customBase) throw new Error("Set the custom base URL in the provider panel.");
+    body.base = settings.customBase.replace(/\/+$/, "");
+    body.model = settings.customModel || body.model;
+  }
+  let res;
+  try {
+    res = await fetch("/api/ai", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+  } catch (e) {
+    throw new Error("Could not reach the vibeguard relay. Check your connection.");
+  }
+  let data;
+  try { data = await res.json(); } catch (e) { data = null; }
+  if (!data || !data.ok) {
+    const msg = (data && data.error && data.error.message) || "The AI request failed (status " + res.status + ").";
+    throw new Error(msg);
+  }
+  return data;
+}
+
+/* ---------------- modes & prompts ---------------- */
+
+const MODES = {
+  static: { label: "Static scan", ai: false, hint: "static — no key needed" },
+  bugs: { label: "Bug finder", ai: true, hint: "AI review — key needed" },
+  security: { label: "Security audit", ai: true, hint: "AI review — key needed" },
+  fix: { label: "Fix & explain", ai: true, hint: "AI review — key needed" },
+  deploy: { label: "API & deployment", ai: true, hint: "AI review — key needed" },
+  report: { label: "Full audit report", ai: true, hint: "AI review — key needed" },
+};
+
+const SYSTEM = {
+  bugs:
+    "You are vibeguard, a brutally honest senior code reviewer. Analyze the code for logic bugs, race conditions, null/undefined dereferences, off-by-one errors, wrong API usage, swallowed errors and correctness gaps. Respond in Markdown with: a one-line Risk Score (format exactly 'Risk Score: N/100'), a table of findings (columns: Severity | Line | Issue | Fix), then concrete fixed code blocks where it matters. Cite line numbers. Be specific and actionable, never vague.",
+  security:
+    "You are vibeguard, a security auditor. Find hardcoded secrets, injection (SQL, command, XSS, LDAP), SSRF, insecure auth/sessions, path traversal, weak cryptography, unsafe deserialization, exposed debug endpoints and dependency risks. Respond in Markdown with: Risk Score line (format exactly 'Risk Score: N/100'), a findings table (columns: Severity | Location | Vulnerability | Exploit risk | Fix), then remediation code. Cite line numbers.",
+  fix:
+    "You are vibeguard, a fixer. First explain in plain language what is wrong with the code, then rewrite the full file with fixes applied, then list what changed. Respond in Markdown with sections: 'What is wrong' (bullets), 'Fixed code' (complete fenced code block), 'What changed' (bullets). Preserve the original behavior and style as much as possible.",
+  deploy:
+    "You are vibeguard, a deployment and API reliability reviewer. Flag env-var handling holes, hardcoded config, missing retries/backoff, swallowed errors, missing health checks, CORS misconfiguration, auth leaks, missing rate limiting, secret logging, and unsafe production defaults. Respond in Markdown with: Risk Score line (format exactly 'Risk Score: N/100'), a table of deployment risks (columns: Severity | Area | Risk | Fix), an action checklist, and a short hardening section.",
+  report:
+    "You are vibeguard, producing a comprehensive executive audit report. Output a single Markdown document with: Executive Summary, Risk Score (format exactly 'Risk Score: N/100'), Findings Summary table (Severity | Count), Detailed findings (each with location, line, description, severity and fix), Security vulnerabilities, Deployment & API warnings, Best-practice recommendations, and a Prioritized action plan. Be specific and cite line numbers throughout.",
+};
+
+function buildUserMessage(files, truncated) {
+  let out = "Code under review:\n\n";
+  for (const f of files) {
+    out += "## File: " + f.name + "\n```\n" + f.text + "\n```\n\n";
+  }
+  if (truncated) out += "\n(Note: the input was large; this is the part that fit in the model window.)\n";
+  out += "\nReview the code above. Cite line numbers, keep it actionable.";
+  return out;
+}
+
+/* ---------------- source files state ---------------- */
+
+let loadedFiles = null;
+let lastFileName = "input.ts";
+let lastRepoBranch = "";
+
+function currentFiles() {
+  if (loadedFiles && loadedFiles.length) return loadedFiles;
+  return [{ name: lastFileName, text: codeEl.value }];
+}
+function hasMultiple() { return !!loadedFiles && loadedFiles.length > 1; }
+
+function setEditorFiles(files) {
+  loadedFiles = files;
+  if (files && files.length) {
+    codeEl.value = files[0].text;
+    lastFileName = files[0].name;
+  }
+  renderGutter(codeEl.value.split(/\r?\n/), []);
+  $("fileLabel").textContent = files && files.length > 1 ? files.length + " files loaded" : "";
+}
+
+const SAMPLE =
+  'import { db } from "./db";\n' +
+  'import { helper } from "./helper";\n' +
+  "\n" +
+  "export async function getUser(id: string) {\n" +
+  "  const user = db.users.find((u) => u.id === id);\n" +
+  '  const apiKey = "sk-live-9f2c1a5b8e4d7a0c3f6e9b1d2a4c7e8f";\n' +
+  "  const token = process.env.AUTH_TOKEN;\n" +
+  "  try {\n" +
+  '    await fetch(`https://api.example.com/user/${user.email}`);\n' +
+  "  } catch (e) {}\n" +
+  '  const webhook = "https://example.com/your-secret-endpoint";\n' +
+  "  await new Promise((r) => setTimeout(r, 5000));\n" +
+  "  return { ...user, apiKey };\n" +
+  "}\n" +
+  "\n" +
+  'console.log("debug: loaded user", user);\n';
+
+/* ---------------- rendering: static findings ---------------- */
+
+function renderFindings(findings) {
   const errs = findings.filter((f) => f.sev === "error").length;
   const warns = findings.filter((f) => f.sev === "warning").length;
   const score = Math.max(0, Math.min(100, 100 - errs * 15 - warns * 5));
   const fillColor = score > 66 ? "var(--green)" : score > 33 ? "var(--yellow)" : "var(--red)";
-
   let html = "";
-  if (!source.trim()) {
-    html = `<div class="empty">// paste code above — findings appear here</div>`;
-  } else if (findings.length === 0) {
-    html = `<div class="out-line"><span class="ok-marker">✓</span><span class="out-text">clean — vibeguard found nothing suspicious in ${lines.length} lines.</span></div>`;
-  } else {
-    html += `<div class="out-file">vibeguard check — src/demo.ts</div>`;
-    titleEl.textContent = "vibeguard check — src/demo.ts";
-    for (const f of findings) {
-      const mark = f.sev === "error" ? '<span class="err-marker">✘</span>' : '<span class="warn-marker">⚠</span>';
-      html += `<div class="out-line"><span class="ln">${f.line}</span><span class="out-marker">${mark}</span><span class="out-rule">[${f.rule}]</span><span class="out-text">${ESC(f.message)}</span></div>`;
-      html += `<span class="out-snippet">${ESC(lines[f.line - 1] || "").slice(0, 90) || " "}</span>`;
+  let lastFile = null;
+  for (const f of findings) {
+    if (f.file !== lastFile) {
+      lastFile = f.file;
+      html += `<div class="out-file">${ESC(f.file)}</div>`;
     }
+    const mark = f.sev === "error" ? '<span class="err-marker">✘</span>' : '<span class="warn-marker">⚠</span>';
+    html += `<div class="out-line"><span class="ln">${f.line}</span><span class="out-marker">${mark}</span><span class="out-rule">[${f.rule}]</span><span class="out-text">${ESC(f.message)}</span></div>`;
+    html += `<span class="out-snippet">${ESC(f.snippet || "") || " "}</span>`;
   }
-
-  const verdict = errs > 0
-    ? `<div class="verdict blocked">✘ BLOCKED — ${errs} error${errs === 1 ? "" : "s"}, ${warns} warning${warns === 1 ? "" : "s"}. Your AI is confident. vibeguard is not.</div>`
-    : warns > 0
-      ? `<div class="verdict warned">△ passed with warnings — ${warns} warning${warns === 1 ? "" : "s"}. Clean enough to merge. Dirty enough to look at first.</div>`
-      : `<div class="verdict clean">✓ clean — nothing to block. Ship it.</div>`;
-
-  html += `<div class="out-summary">
-    <div><b class="${errs ? "err" : ""}">${errs} error${errs === 1 ? "" : "s"}</b> · <b class="${warns ? "warn" : ""}">${warns} warning${warns === 1 ? "" : "s"}</b></div>
-    <div class="gauge-row"><div class="gauge"><div class="gauge-fill" style="width:${score}%;background:${fillColor}"></div></div><span class="gauge-score">${score}/100</span></div>
-    ${verdict}
-  </div>`;
-
-  outputEl.innerHTML = html;
-  statusEl.firstChild.textContent = errs > 0 ? "blocked — fix before you commit" : "scan complete";
+  const verdict =
+    errs > 0
+      ? `<div class="verdict blocked">✘ BLOCKED — ${errs} error${errs === 1 ? "" : "s"}, ${warns} warning${warns === 1 ? "" : "s"}. Fix what is red.</div>`
+      : warns > 0
+        ? `<div class="verdict warned">△ passed with warnings — ${warns} warning${warns === 1 ? "" : "s"}. Clean enough to merge, dirty enough to read first.</div>`
+        : `<div class="verdict clean">✓ clean — nothing suspicious found.</div>`;
+  html += `<div class="out-summary"><b class="${errs ? "err" : ""}">${errs} error${errs === 1 ? "" : "s"}</b> · <b class="${warns ? "warn" : ""}">${warns} warning${warns === 1 ? "" : "s"}</b><div class="gauge-row"><div class="gauge"><div class="gauge-fill" style="width:${score}%;background:${fillColor}"></div></div><span class="gauge-score">${score}/100</span></div>${verdict}</div>`;
+  return html;
 }
+
+function findingsToMarkdown(files, findings) {
+  let md = "# vibeguard static scan report\n\n";
+  md += "- Generated: " + new Date().toISOString() + "\n- Files scanned: " + files.length + "\n- Findings: " + findings.length + "\n\n";
+  if (!findings.length) { md += "No issues found.\n"; return md; }
+  md += "| Severity | File | Line | Rule | Issue |\n|---|---|---|---|---|\n";
+  for (const f of findings) md += `| ${f.sev} | ${f.file} | ${f.line} | ${f.rule} | ${f.message} |\n`;
+  return md;
+}
+
+/* ---------------- gutter ---------------- */
 
 function renderGutter(lines, findings) {
   const marks = new Map();
   for (const f of findings) {
     const cur = marks.get(f.line) || 0;
-    if (f.sev === "error") marks.set(f.line, 2);
-    else if (cur < 2) marks.set(f.line, 1);
+    marks.set(f.line, f.sev === "error" ? 2 : cur < 2 ? 1 : cur);
   }
   let html = "";
   for (let i = 0; i < lines.length; i++) {
@@ -423,102 +663,460 @@ function renderGutter(lines, findings) {
   }
   gutterEl.innerHTML = html;
 }
-
-function syncGutterScroll() {
-  gutterEl.scrollTop = codeEl.scrollTop;
-}
-
-function highlightCursorLine() {
-  const start = codeEl.selectionStart;
-  const line = sourceUpTo(start);
-  gutterEl.querySelectorAll("div").forEach((d, i) => d.classList.toggle("cur", i === line));
-}
-function sourceUpTo(pos) {
+function syncGutter() { gutterEl.scrollTop = codeEl.scrollTop; }
+function cursorLine() {
+  const pos = codeEl.selectionStart;
   let n = 0;
   for (let i = 0; i < pos; i++) if (codeEl.value[i] === "\n") n++;
-  return n;
+  gutterEl.querySelectorAll("div").forEach((d, i) => d.classList.toggle("cur", i === n));
 }
 
-function renderRulesGrid() {
-  rulesGrid.innerHTML = RULES.map((r) => `
-    <div class="rule-card ${r.sev}">
-      <div class="rule-head">
-        <h3>${r.id}</h3>
-        <span class="tag">${r.sev === "error" ? "blocks commit" : "warning"}</span>
-      </div>
-      <p>${ESC(r.desc)}</p>
-    </div>`).join("");
-  rulesGrid.querySelectorAll(".rule-card").forEach((c) => c.classList.add("reveal"));
+/* ---------------- run ---------------- */
+
+let activeMode = "static";
+let lastReport = null;
+
+function setMode(mode) {
+  activeMode = mode;
+  document.querySelectorAll(".mode-tab").forEach((b) => {
+    const on = b.dataset.mode === mode;
+    b.classList.toggle("active", on);
+    b.setAttribute("aria-selected", on ? "true" : "false");
+  });
+  $("runHint").textContent = MODES[mode].hint;
+  titleEl.textContent = MODES[mode].label;
+  verdictEl.innerHTML = "";
 }
 
-const DEMO = [
-  'import { db } from "./db";',
-  'import { helper } from "./helper";',
-  "",
-  "export async function getUser(id: string) {",
-  "  const user = db.users.find((u) => u.id === id);",
-  '  const apiKey = "sk-live-9f2c1a5b8e4d7a0c3f6e9b1d2a4c7e8f";',
-  "  const token = process.env.AUTH_TOKEN;",
-  "  try {",
-  '    await fetch(`https://api.example.com/user/${user.email}`);',
-  "  } catch (e) {}",
-  '  const webhook = "https://example.com/your-secret-endpoint";',
-  "  await new Promise((r) => setTimeout(r, 5000));",
-  "  return { ...user, apiKey };",
-  "}",
-  "",
-  'console.log("debug: loaded user", user);',
-  "",
+function setStatus(text, cls) {
+  statusEl.textContent = text || "";
+  statusEl.className = "res-status" + (cls ? " " + cls : "");
+}
+
+async function run() {
+  const mode = MODES[activeMode];
+  if (!mode.ai) return runStatic();
+  return runAI();
+}
+
+function runStatic() {
+  const target = currentFiles();
+  const findings = scanFiles(target, { newFile: !hasMultiple() });
+  const marks = target.length === 1 ? findings.filter((f) => f.file === target[0].name) : [];
+  renderGutter(codeEl.value.split(/\r?\n/), marks);
+  titleEl.textContent = MODES.static.label + (target.length > 1 ? " · " + target.length + " files" : "");
+  if (!target[0].text.trim()) {
+    outputEl.innerHTML = '<div class="empty">// add some code first.</div>';
+    verdictEl.innerHTML = "";
+    setStatus("waiting for input");
+    lastReport = null;
+    return;
+  }
+  const html = renderFindings(findings);
+  outputEl.innerHTML = html;
+  setStatus(target.length + " file" + (target.length === 1 ? "" : "s") + " scanned · " + findings.length + " finding" + (findings.length === 1 ? "" : "s"), findings.some((f) => f.sev === "error") ? "" : "");
+  lastReport = { type: "static", mode: "static", files: target.length, findings: findings.length, markdown: findingsToMarkdown(target, findings) };
+}
+
+async function runAI() {
+  const target = currentFiles();
+  const text = codeEl.value.trim();
+  if (!text && !target.length) { toast("Add some code first.", "err"); return; }
+  let files = target;
+  let truncated = false;
+  let total = files.reduce((n, f) => n + f.text.length, 0);
+  if (total > 50000) {
+    const capped = [];
+    let n = 0;
+    for (const f of files) {
+      if (n >= 50000) break;
+      const take = f.text.slice(0, 50000 - n);
+      capped.push({ name: f.name, text: take });
+      n += take.length + f.name.length + 6;
+    }
+    files = capped;
+    truncated = true;
+  }
+  const p = providerOf(settings.provider);
+  titleEl.textContent = MODES[activeMode].label + " · " + p.name;
+  setStatus("running " + settings.model + " …", "loading");
+  outputEl.innerHTML = '<div class="empty">// AI is reading ' + files.length + " file" + (files.length === 1 ? "" : "s") + " and scanning for issues…</div>";
+  verdictEl.innerHTML = "";
+  const messages = [
+    { role: "system", content: SYSTEM[activeMode] },
+    { role: "user", content: buildUserMessage(files, truncated) },
+  ];
+  try {
+    const data = await callAI(messages);
+    const html = riskBadges(mdRender(data.content));
+    outputEl.innerHTML = html;
+    setStatus("via " + data.model, "");
+    verdictEl.innerHTML = `<div class="verdict clean">AI review complete — generated by ${ESC(p.name)}</div>`;
+    lastReport = {
+      type: "ai", mode: activeMode, provider: p.name, model: data.model,
+      markdown: data.content, files: files.map((f) => f.name),
+      ts: new Date().toISOString(), temperature: settings.temp,
+    };
+  } catch (e) {
+    setStatus("failed");
+    verdictEl.innerHTML = `<div class="verdict blocked">Scan failed</div>`;
+    outputEl.innerHTML = `<div class="empty">// ${ESC(e.message)}</div>`;
+    lastReport = null;
+    toast(e.message, "err");
+  }
+}
+
+/* ---------------- sample / upload / github ---------------- */
+
+function loadSample() {
+  setEditorFiles([{ name: "src/demo.ts", text: SAMPLE }]);
+  if (activeMode !== "static") setMode("static");
+  runStatic();
+  scrollToStudio();
+}
+
+function handleFiles(fileList) {
+  const files = [];
+  let pending = Array.from(fileList).length;
+  Array.from(fileList).forEach((file) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      files.push({ name: file.name, text: String(reader.result || "") });
+      if (--pending === 0) {
+        if (!files.length) return;
+        setEditorFiles(files);
+        if (activeMode !== "static") setMode("static");
+        runStatic();
+        toast(files.length + " file" + (files.length === 1 ? "" : "s") + " loaded", "ok");
+      }
+    };
+    reader.readAsText(file);
+  });
+}
+
+function parseGhUrl(url) {
+  const m = String(url).match(/github\.com\/([^/\s]+)\/([^/\s#?]+)/i);
+  if (!m) return null;
+  return { owner: m[1], repo: m[2].replace(/\.git$/, "") };
+}
+
+async function fetchRepo(url, runAfter) {
+  const gh = parseGhUrl(url);
+  if (!gh) { $("ghStatus").textContent = "Enter a valid public GitHub repo URL."; $("ghStatus").className = "gh-status err"; return; }
+  $("ghStatus").textContent = "Resolving repo…";
+  $("ghStatus").className = "gh-status";
+  try {
+    const metaRes = await fetch("https://api.github.com/repos/" + gh.owner + "/" + gh.repo);
+    if (!metaRes.ok) throw new Error("Repo not found or not public (HTTP " + metaRes.status + ").");
+    const meta = await metaRes.json();
+    const branch = meta.default_branch || "main";
+    lastRepoBranch = branch;
+    const treeRes = await fetch("https://api.github.com/repos/" + gh.owner + "/" + gh.repo + "/git/trees/" + encodeURIComponent(branch) + "?recursive=1");
+    if (!treeRes.ok) throw new Error("Could not list repo files (HTTP " + treeRes.status + ").");
+    const tree = await treeRes.json();
+    const codeFiles = (tree.tree || [])
+      .filter((t) => t.type === "blob" && CODE_EXTS.test(t.path) && !isTestFile(t.path))
+      .map((t) => t.path)
+      .slice(0, 30);
+    if (!codeFiles.length) throw new Error("No code files found in that repo.");
+    $("ghStatus").textContent = "Fetching " + codeFiles.length + " files…";
+    const files = [];
+    const prefix = "https://raw.githubusercontent.com/" + gh.owner + "/" + gh.repo + "/" + encodeURIComponent(branch) + "/";
+    for (let i = 0; i < codeFiles.length; i++) {
+      const p = codeFiles[i];
+      try {
+        const r = await fetch(prefix + p.split("/").map(encodeURIComponent).join("/"));
+        if (r.ok) {
+          const t = await r.text();
+          files.push({ name: p, text: t });
+        }
+      } catch (e) { /* skip unreadable file */ }
+    }
+    if (!files.length) throw new Error("Could not read any files from the repo.");
+    setEditorFiles(files);
+    $("ghStatus").textContent = gh.owner + "/" + gh.repo + " · " + files.length + " files";
+    $("ghStatus").className = "gh-status ok";
+    if (activeMode !== "static") setMode("static");
+    runStatic();
+    if (runAfter) runAfter();
+    toast("Repo loaded: " + gh.owner + "/" + gh.repo, "ok");
+  } catch (e) {
+    $("ghStatus").textContent = e.message;
+    $("ghStatus").className = "gh-status err";
+    toast(e.message, "err");
+  }
+}
+
+function scrollToStudio() {
+  $("studio").scrollIntoView({ behavior: "smooth" });
+}
+
+/* ---------------- downloads ---------------- */
+
+function download(name, text, mime) {
+  const blob = new Blob([text], { type: mime || "text/plain;charset=utf-8" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = name;
+  document.body.appendChild(a);
+  a.click();
+  setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 2000);
+}
+
+function currentReportText() {
+  if (lastReport && lastReport.markdown) return lastReport.markdown;
+  if (activeMode === "static") return findingsToMarkdown(currentFiles(), scanFiles(currentFiles(), { newFile: !hasMultiple() }));
+  return "";
+}
+
+function downloadHtml(reportMd) {
+  const title = "vibeguard report — " + (lastReport && lastReport.type === "ai" ? lastReport.mode : "static scan") + " · " + new Date().toISOString().slice(0, 10);
+  const html =
+    "<!DOCTYPE html><html lang=\"en\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width,initial-scale=1\">" +
+    "<title>" + ESC(title) + "</title>" +
+    "<style>body{font-family:Inter,system-ui,sans-serif;max-width:820px;margin:32px auto;padding:0 20px;line-height:1.6;color:#1a2233;background:#fff}h1,h2,h3{border-bottom:1px solid #e3e8f0;padding-bottom:6px}pre{background:#0d1520;color:#dbe6f4;padding:14px;border-radius:8px;overflow:auto}code{font-family:ui-monospace,Consolas,monospace;font-size:.92em}table{border-collapse:collapse;width:100%}th,td{border:1px solid #d8dee9;padding:7px 10px;text-align:left;font-size:.94em}th{background:#f1f5fb}blockquote{border-left:3px solid #22d3ee;margin:0;padding-left:14px;color:#55607a}.risk-high{color:#c0392b;font-weight:700}.risk-med{color:#b8860b;font-weight:700}.risk-low{color:#1e8449;font-weight:700}hr{border:none;border-top:1px solid #e3e8f0}</style></head><body>" +
+    riskBadges(mdRender(reportMd)) +
+    "</body></html>";
+  download("vibeguard-report.html", html, "text/html;charset=utf-8");
+}
+
+function downloadJson() {
+  const payload = {
+    generatedAt: new Date().toISOString(),
+    type: lastReport ? lastReport.type : "static",
+    mode: activeMode,
+    provider: lastReport ? lastReport.provider : null,
+    model: lastReport ? lastReport.model : null,
+    files: lastReport ? lastReport.files : currentFiles().map((f) => f.name),
+    report: currentReportText(),
+  };
+  download("vibeguard-report.json", JSON.stringify(payload, null, 2), "application/json;charset=utf-8");
+}
+
+/* ---------------- dynamic sections ---------------- */
+
+const FEATURES = [
+  { t: "Instant static scanner", d: "Ten deterministic rules catch the classic false-clean bugs — empty catches, null derefs, leaked keys, invented env vars. Zero setup, zero AI, runs entirely in your browser." },
+  { t: "AI bug finder", d: "A connected free model deep-reads your code for logic errors, race conditions, error-handling gaps and wrong API usage — with line-level fixes." },
+  { t: "Security audit", d: "OWASP-style review: injection, XSS, SSRF, hardcoded secrets, auth flaws, path traversal, unsafe deserialization and dependency risks." },
+  { t: "Fix & explain", d: "AI rewrites the problematic code and explains exactly what changed and why. Every scan doubles as a code review lesson." },
+  { t: "API & deployment review", d: "Catches env-var holes, missing retries and backoff, swallowed errors, CORS and auth misconfigs, secret logging and unsafe production defaults." },
+  { t: "Full audit report", d: "One executive-ready report with risk score, severity table, detailed findings, code fixes and a prioritized action plan." },
+  { t: "Works with any free AI", d: "Gemini, Groq, OpenRouter, Cerebras, Mistral, GitHub Models or NVIDIA — paste a free key and scan. No credit card required for most." },
+  { t: "Scan code every way", d: "Paste a snippet, upload multiple files, or pull a whole public GitHub repository and batch-scan every file." },
+  { t: "Private by design", d: "No account, no login, no telemetry. Keys live in your browser; code goes only to the AI provider you chose." },
+];
+const ICONS = [
+  '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3 8-8"/><path d="M20 12v6a2 2 0 01-2 2H6a2 2 0 01-2-2V6a2 2 0 012-2h9"/></svg>',
+  '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4v16h16v-7"/><path d="M17 4h3v3M13.5 10.5L21 3"/></svg>',
+  '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3l7 3v5c0 5-3 9-7 10-4-1-7-5-7-10V6l7-3z"/><path d="M9 12l2 2 4-4"/></svg>',
+  '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 17l6-6-6-6M12 19h8"/></svg>',
+  '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12h4l3-8 4 16 3-8h4"/></svg>',
+  '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8l-6-6z"/><path d="M14 2v6h6M9 13l2 2 4-4"/></svg>',
+  '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg>',
+  '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c3 3 3 15 0 18M12 3c-3 3-3 15 0 18"/></svg>',
+  '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="10" width="16" height="11" rx="2"/><path d="M8 10V7a4 4 0 018 0v3"/></svg>',
 ];
 
-let t = null;
-codeEl.addEventListener("input", () => {
-  clearTimeout(t);
-  t = setTimeout(analyze, 220);
-});
-codeEl.addEventListener("scroll", syncGutterScroll);
-codeEl.addEventListener("click", highlightCursorLine);
-codeEl.addEventListener("keyup", highlightCursorLine);
-codeEl.addEventListener("keydown", (e) => {
-  if ((e.ctrlKey || e.metaKey) && e.key === "Enter") { e.preventDefault(); analyze(); }
-});
+const STEPS = [
+  { t: "Connect a free AI model", d: "Pick a provider (Gemini, Groq, OpenRouter, Cerebras, Mistral, GitHub Models, NVIDIA), click Get key, and paste it in. Every one has a genuinely free tier." },
+  { t: "Add your code", d: "Paste a snippet, upload files, or drop a public GitHub repo URL. The static scanner works instantly on anything — no key needed." },
+  { t: "Scan and fix", d: "Run any of six modes. Static rules catch the obvious fast; AI audits for deep bugs, vulnerabilities and deployment risks, with fixes." },
+  { t: "Get the report", d: "Download the full report as Markdown, styled HTML, or JSON. Share it with your team, attach it to a ticket, or file it with your release." },
+];
 
-$("loadDemo").addEventListener("click", () => {
-  codeEl.value = DEMO.join("\n");
-  codeEl.focus();
-  analyze();
-});
-$("clearBtn").addEventListener("click", () => {
-  codeEl.value = "";
-  titleEl.textContent = "vibeguard check — src/demo.ts";
-  analyze();
-  codeEl.focus();
-});
+const FAQ = [
+  { q: "Which AI models can I use?", a: "Any of the free tiers: Google Gemini, Groq, OpenRouter, Cerebras, Mistral, GitHub Models, NVIDIA NIM — or any OpenAI-compatible endpoint via the Custom option. Click a provider card below for the exact link to create a free key." },
+  { q: "Is my API key safe?", a: "Yes. Keys are stored only in your browser's local storage and are sent directly to the AI provider through a stateless relay. The relay never logs or stores your key, and it only forwards to a whitelist of provider endpoints." },
+  { q: "Is this really free?", a: "The tool is free forever — no account, no login, no payment. The AI models run on each provider's free tier using the key you paste. The static scanner needs no key at all." },
+  { q: "Does it upload my code anywhere?", a: "The static scan is 100% local — nothing leaves your browser. AI modes send your code only to the AI provider you explicitly chose, using your own key." },
+  { q: "Can I use it without any AI key?", a: "Yes. The Static scan mode and the GitHub/upload/paste tooling all work with zero configuration. Add a free key only when you want AI analysis, fixes and reports." },
+  { q: "Do I need GitHub?", a: "No. Pasting code or uploading files works without any account. Fetching a public GitHub repo is a convenience that also needs no login." },
+];
 
-document.addEventListener("click", (e) => {
-  const btn = e.target.closest(".copy-btn");
-  if (!btn) return;
-  const text = btn.dataset.copy;
-  const done = () => {
-    btn.textContent = "copied";
-    btn.classList.add("copied");
-    setTimeout(() => { btn.textContent = "copy"; btn.classList.remove("copied"); }, 1500);
-  };
-  if (navigator.clipboard && navigator.clipboard.writeText) {
-    navigator.clipboard.writeText(text).then(done, () => fallbackCopy(text, done));
-  } else {
-    fallbackCopy(text, done);
-  }
-});
-function fallbackCopy(text, done) {
-  const ta = document.createElement("textarea");
-  ta.value = text;
-  ta.style.position = "fixed";
-  ta.style.opacity = "0";
-  document.body.appendChild(ta);
-  ta.select();
-  try { document.execCommand("copy"); done(); } catch { btn.textContent = "ctrl+c"; }
-  document.body.removeChild(ta);
+function renderSections() {
+  $("featuresGrid").innerHTML = FEATURES.map((f, i) => `<div class="why-card"><h3><span class="feat-ico">${ICONS[i]}</span>${ESC(f.t)}</h3><p>${ESC(f.d)}</p></div>`).join("");
+  $("steps").innerHTML = STEPS.map((s, i) => `<div class="step"><span class="step-num">${i + 1}</span><div class="step-name">${ESC(s.t)}</div><div class="step-text">${ESC(s.d)}</div></div>`).join("");
+  $("providerGrid").innerHTML = PROVIDERS.filter((p) => p.id !== "custom").map((p) =>
+    `<div class="pcard">
+      <div class="pcard-head"><div class="pbadge" style="background:${p.color};color:#fff">${ESC(p.name.slice(0, 1))}</div><div><h3>${ESC(p.name)}</h3><span class="pfree">${ESC(p.free)}</span></div></div>
+      <p class="pnote">${ESC(p.note)}</p>
+      <div class="pmodels">${p.models.slice(0, 4).map((m) => `<span>${ESC(m)}</span>`).join("")}</div>
+      <a class="pcta" href="${p.keyLink}" target="_blank" rel="noopener">${ESC(p.keyLabel)} →</a>
+    </div>`).join("");
+  $("faqList").innerHTML = FAQ.map((f) => `<details class="faq"><summary>${ESC(f.q)}</summary><p>${ESC(f.a)}</p></details>`).join("");
+}
+
+const SAMPLE_REPORT = [
+  "# Security Analysis Results",
+  "",
+  "**Target:** src/api/auth.ts · **Mode:** Security audit · **Model:** gemini-2.5-flash",
+  "",
+  "## Risk Score: 78/100",
+  "",
+  "Three issues need attention before this ships. The critical one is a hardcoded credential that will be picked up by automated scanning tools within hours of being pushed.",
+  "",
+  "## Findings",
+  "",
+  "| Severity | Location | Vulnerability | Fix |",
+  "|---|---|---|---|",
+  "| Critical | src/api/auth.ts:12 | Hardcoded API key in source | Move to an env var, load via config, add to .env.example |",
+  "| High | src/api/auth.ts:41 | Null deref — `user.find()` result used without a check | Use optional chaining (`user?.email`) or a null guard |",
+  "| High | src/api/auth.ts:28 | Empty `catch {}` swallows the failure | Log the error and rethrow or handle it explicitly |",
+  "| Medium | src/api/auth.ts:9 | `process.env.AUTH_TOKEN` read with no fallback and no entry in `.env.example` | Declare the variable and validate it at startup |",
+  "| Low | src/api/auth.ts:33 | `console.log` left in production path | Remove or route through a logger |",
+  "",
+  "## Recommended fixes",
+  "",
+  "```ts",
+  "const token = process.env.AUTH_TOKEN;",
+  "if (!token) throw new Error(\"AUTH_TOKEN is not set\");",
+  "",
+  "const user = db.users.find((u) => u.id === id);",
+  "if (!user) return res.status(404).json({ error: \"not found\" });",
+  "```",
+  "",
+  "## Priority order",
+  "",
+  "1. Remove the hardcoded key and rotate it now.",
+  "2. Guard the nullable lookup before it crashes in production.",
+  "3. Never swallow errors in a catch block.",
+  "",
+].join("\n");
+
+function renderSample() {
+  $("sampleContent").innerHTML = riskBadges(mdRender(SAMPLE_REPORT));
+}
+
+/* ---------------- events ---------------- */
+
+function bindEvents() {
+  $("providerToggle").addEventListener("click", () => {
+    const open = $("providerPanel").classList.toggle("open");
+    $("providerBody").hidden = !open;
+    $("providerToggle").setAttribute("aria-expanded", open ? "true" : "false");
+  });
+  $("providerSel").addEventListener("change", (e) => {
+    settings.provider = e.target.value;
+    settings.model = "";
+    saveSettings(settings);
+    syncProviderUI();
+  });
+  $("modelSel").addEventListener("change", (e) => {
+    settings.model = e.target.value;
+    saveSettings(settings);
+  });
+  $("apiKey").addEventListener("input", (e) => {
+    setKey(settings.provider, e.target.value.trim());
+    updateProviderState();
+  });
+  $("btnKeyToggle").addEventListener("click", () => {
+    const inp = $("apiKey");
+    const isPw = inp.type === "password";
+    inp.type = isPw ? "text" : "password";
+    $("btnKeyToggle").textContent = isPw ? "hide" : "show";
+  });
+  $("temp").addEventListener("input", (e) => {
+    settings.temp = parseFloat(e.target.value);
+    $("tempVal").textContent = settings.temp.toFixed(1);
+    saveSettings(settings);
+  });
+  $("customBase").addEventListener("input", (e) => { settings.customBase = e.target.value.trim(); saveSettings(settings); });
+  $("customModel").addEventListener("input", (e) => { settings.customModel = e.target.value.trim(); saveSettings(settings); });
+
+  $("btnTestKey").addEventListener("click", async () => {
+    const p = providerOf(settings.provider);
+    if (!getKey(p.id)) { toast("Paste a key first.", "err"); return; }
+    $("btnTestKey").disabled = true;
+    setStatus("testing connection…", "loading");
+    try {
+      const data = await callAI([{ role: "user", content: "Reply with exactly the word ok." }], { max_tokens: 5 });
+      toast("Connected to " + p.name + " (" + data.model + ")", "ok");
+      setStatus("connected");
+    } catch (e) {
+      toast(e.message, "err");
+      setStatus("connection failed");
+    } finally {
+      $("btnTestKey").disabled = false;
+    }
+  });
+
+  document.querySelectorAll(".mode-tab").forEach((b) => b.addEventListener("click", () => setMode(b.dataset.mode)));
+
+  $("btnRun").addEventListener("click", run);
+
+  $("btnSample").addEventListener("click", loadSample);
+  $("btnClear").addEventListener("click", () => {
+    codeEl.value = "";
+    loadedFiles = null;
+    renderGutter([], []);
+    outputEl.innerHTML = '<div class="empty">// cleared.</div>';
+    verdictEl.innerHTML = "";
+    setStatus("");
+    lastReport = null;
+    $("fileLabel").textContent = "";
+    $("ghStatus").textContent = "";
+    codeEl.focus();
+  });
+  $("btnUpload").addEventListener("click", () => $("fileInput").click());
+  $("fileInput").addEventListener("change", (e) => { if (e.target.files && e.target.files.length) handleFiles(e.target.files); e.target.value = ""; });
+  $("btnFetchGh").addEventListener("click", () => { const u = $("ghUrl").value.trim(); if (u) fetchRepo(u); });
+  $("ghUrl").addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); $("btnFetchGh").click(); } });
+
+  codeEl.addEventListener("input", () => {
+    if (loadedFiles) loadedFiles = null;
+    const lines = codeEl.value.split(/\r?\n/);
+    renderGutter(lines, []);
+  });
+  codeEl.addEventListener("scroll", syncGutter);
+  codeEl.addEventListener("click", cursorLine);
+  codeEl.addEventListener("keyup", cursorLine);
+  codeEl.addEventListener("keydown", (e) => {
+    if ((e.ctrlKey || e.metaKey) && e.key === "Enter") { e.preventDefault(); run(); }
+  });
+
+  $("btnCopy").addEventListener("click", async () => {
+    const text = currentReportText();
+    if (!text) { toast("Nothing to copy yet.", "err"); return; }
+    try {
+      await navigator.clipboard.writeText(text);
+      toast("Report copied to clipboard.", "ok");
+    } catch (e) {
+      toast("Could not access the clipboard.", "err");
+    }
+  });
+  $("btnDlMd").addEventListener("click", () => {
+    const text = currentReportText();
+    if (!text) { toast("Nothing to download yet.", "err"); return; }
+    download("vibeguard-report.md", text, "text/markdown;charset=utf-8");
+  });
+  $("btnDlHtml").addEventListener("click", () => {
+    const text = currentReportText();
+    if (!text) { toast("Nothing to download yet.", "err"); return; }
+    downloadHtml(text);
+  });
+  $("btnDlJson").addEventListener("click", downloadJson);
+
+  $("heroScan").addEventListener("submit", (e) => {
+    e.preventDefault();
+    const u = $("heroRepo").value.trim();
+    if (!u) { scrollToStudio(); codeEl.focus(); return; }
+    $("ghUrl").value = u;
+    scrollToStudio();
+    if (activeMode !== "static") setMode("static");
+    fetchRepo(u);
+  });
+  document.querySelectorAll("[data-chip]").forEach((a) => {
+    a.addEventListener("click", (e) => {
+      e.preventDefault();
+      const chip = a.dataset.chip;
+      if (chip === "sample") loadSample();
+      else if (chip === "upload") { scrollToStudio(); $("fileInput").click(); }
+      else scrollToStudio();
+    });
+  });
+
+  window.addEventListener("scroll", () => $("nav").classList.toggle("scrolled", window.scrollY > 12), { passive: true });
 }
 
 function initReveal() {
@@ -526,18 +1124,23 @@ function initReveal() {
     for (const en of entries) {
       if (en.isIntersecting) { en.target.classList.add("in"); io.unobserve(en.target); }
     }
-  }, { threshold: 0.1 });
-  document.querySelectorAll("section.section > h2, section.section > p.section-sub, .why-card, .step, .faq, .rule-card").forEach((el) => {
+  }, { threshold: 0.08 });
+  document.querySelectorAll("section.section > h2, section.section > p.section-sub, .why-card, .step, .pcard, .faq, .sample-report").forEach((el) => {
     el.classList.add("reveal");
     io.observe(el);
   });
   document.querySelector(".hero").classList.add("reveal", "in");
 }
 
-window.addEventListener("scroll", () => {
-  $("nav").classList.toggle("scrolled", window.scrollY > 12);
-}, { passive: true });
-
-renderRulesGrid();
+renderProviderSelect();
+renderSections();
+renderSample();
+bindEvents();
+setMode("static");
+$("temp").value = settings.temp;
+$("tempVal").textContent = settings.temp.toFixed(1);
+syncProviderUI();
+renderGutter([], []);
 initReveal();
-analyze();
+setEditorFiles([{ name: "src/demo.ts", text: SAMPLE }]);
+runStatic();
