@@ -7,7 +7,7 @@
 **Your AI is confident. vibeguard is not.**
 
 A zero-dependency **pre-commit guard** for your terminal, plus a browser-based **AI Studio**
-that hunts bugs, finds vulnerabilities, audits live websites, and writes deploy-ready
+that hunts bugs, finds vulnerabilities, **scans any live website**, and writes deploy-ready
 reports — without ever uploading your keys or your code to anyone's server.
 
 ```
@@ -17,6 +17,7 @@ reports — without ever uploading your keys or your code to anyone's server.
  user.find().email  →  🛑 blocked
  invented env var   →  🛑 blocked
  hardcoded key      →  🛑 blocked
+ your live site     →  🔍 AI-audited
 ```
 
 <br>
@@ -31,6 +32,23 @@ reports — without ever uploading your keys or your code to anyone's server.
 **▶ [Open the AI Studio](https://guardvibe.vercel.app)** · **`npm i -g vibeguard && vibeguard install`**
 
 </div>
+
+---
+
+## Scan a website before anyone else does
+
+Type any domain straight into the Studio landing page — `example.com`, **no `http://` needed**.
+vibeguard normalizes the URL, opens the **Website Scanner**, resolves the page server-side,
+and feeds the grabbed HTML, scripts, forms, inputs, links and visible text to your connected
+model. Seconds later you get a Risk Score /100, a severity table, and a hardening checklist
+for the real URL.
+
+- 🔒 **SSRF-guarded** — private, loopback, link-local and cloud-metadata addresses are refused
+  (DNS re-checked on every redirect hop, so no rebinding tricks)
+- ⚖️ **Safe limits** — 8s timeout, 250 KB page cap, 6 redirect hops max
+- 🕸️ The AI hunts **exposed secrets, unsafe forms, missing CSRF, risky third-party scripts,
+  open redirects, information disclosure**, admin/debug/staging exposure and more
+- ⌨️ The Studio terminal accepts the same URL — paste, press `⏎`, get the audit
 
 ---
 
@@ -54,7 +72,7 @@ LLMs repeat most — and then offers an **optional AI deep dive** that actually 
 | | **CLI guard** | **AI Studio** |
 |---|---|---|
 | Where | your terminal, pre-commit | [guardvibe.vercel.app](https://guardvibe.vercel.app) |
-| Scans | staged diffs, line by line | whole files, multi-file projects, GitHub repos |
+| Scans | staged diffs, line by line | code, multi-file projects, GitHub repos, live websites |
 | Verdict | deterministic, offline, instant | static scan + optional AI deep dive |
 | AI | never | 7 modes · 8 free providers |
 | Reports | exit codes `0` / `1` / `2` | download `.md` / `.html` / `.json` |
@@ -166,37 +184,26 @@ rules:
 
 | mode | what it does |
 |---|---|
+| **Website Scanner** | type any URL (http:// optional) — vibeguard grabs the live page and AI audits it for web vulnerabilities |
 | **Static scan** | runs the 10 rules in your browser. No key needed. |
 | **Bug finder** | hunts logic errors, race conditions, and runtime crashes |
 | **Security audit** | looks for injection, secrets, auth gaps, and dependency risks |
 | **Fix & explain** | rewrites the flagged code and explains every change |
 | **API & deployment** | warns about config, secrets, CORS, and deploy blockers |
 | **Full audit report** | the whole package, formatted like a professional security report |
-| **Website Scanner** | feeds any live URL to the AI — vibeguard resolves the page server-side, grabs its HTML, scripts, forms, inputs, links and visible text, then audits it for web vulnerabilities |
 
 Every AI mode returns a **Risk Score /100**, a severity table
 (Critical / High / Medium / Low), and per-issue fixes.
 
-### Get code in three ways
+### Get code in four ways
 
 - **Paste** code straight into the editor
 - **Upload** files (or a whole folder)
 - **Fetch from GitHub** — drop a repo URL into the terminal panel, and the Studio pulls
   the tree via the public API (up to 30 source files, oversized files safely skipped)
   and scans it in one click
-
-### Scan a live website (Website Scanner)
-
-Drop any URL — **`http://` or `https://` is optional** — into the **Website Scanner**
-terminal and press Run. The relay resolves the page server-side and feeds the grabbed
-content to your connected model:
-
-- **SSRF-guarded** — private, loopback, link-local and cloud-metadata addresses are
-  refused (DNS re-checked on every redirect hop)
-- **Safe limits** — 8s timeout, 250 KB page cap, 6 redirect hops max
-- The AI audits forms, inputs, loaded scripts, iframes, links, meta tags and visible
-  text for exposed secrets, unsafe submissions, missing CSRF, risky third-party scripts,
-  open redirects, information disclosure and more
+- **Scan a live website** — the hero URL box or the Studio terminal accepts any domain;
+  `http://` is optional, so `example.com` just works
 
 ### Providers (free tiers, no card required)
 
@@ -206,13 +213,13 @@ one fails.
 
 | provider | key from | known models |
 |---|---|---|
-| Google Gemini | [aistudio.google.com/apikey](https://aistudio.google.com/apikey) | `gemini-2.5-flash`, `gemini-2.5-pro` |
-| Groq | [console.groq.com/keys](https://console.groq.com/keys) | `llama-3.3-70b-versatile`, `llama-3.1-8b-instant` |
-| OpenRouter | [openrouter.ai/keys](https://openrouter.ai/keys) | many |
-| Cerebras | [cloud.cerebras.ai](https://cloud.cerebras.ai) | `llama-3.3-70b` |
-| Mistral | [console.mistral.ai/api-keys](https://console.mistral.ai/api-keys/) | `mistral-small-latest` |
-| GitHub Models | fine-grained PAT (`models:read`) | `openai/gpt-4o`, `openai/gpt-4o-mini` |
-| NVIDIA NIM | [build.nvidia.com](https://build.nvidia.com) | `meta/llama-3.3-70b-instruct` |
+| Google Gemini | [aistudio.google.com/apikey](https://aistudio.google.com/apikey) | `gemini-2.5-flash`, `gemini-2.5-pro`, `gemini-3-flash-preview` |
+| Groq | [console.groq.com/keys](https://console.groq.com/keys) | `llama-3.3-70b-versatile`, `llama-3.1-8b-instant`, `qwen3-coder-30b` |
+| OpenRouter | [openrouter.ai/keys](https://openrouter.ai/keys) | 20+ free models |
+| Cerebras | [cloud.cerebras.ai](https://cloud.cerebras.ai) | `llama-3.3-70b`, `gpt-oss-120b`, `qwen3-coder-235b-a3b` |
+| Mistral | [console.mistral.ai/api-keys](https://console.mistral.ai/api-keys/) | `codestral-latest`, `mistral-small-latest` |
+| GitHub Models | fine-grained PAT (`models:read`) | `openai/gpt-4o`, `openai/gpt-4.1`, `meta/llama-3.3-70b-instruct` |
+| NVIDIA NIM | [build.nvidia.com](https://build.nvidia.com) | `meta/llama-3.3-70b-instruct`, `nvidia/llama-3.1-nemotron-70b-instruct` |
 | Custom | any OpenAI-compatible endpoint | your models |
 
 ### Key security
@@ -221,6 +228,8 @@ one fails.
 - Requests go **browser → relay → provider**; the relay is a stateless forwarder that
   **never logs or stores your key**
 - Only whitelisted provider endpoints are reachable — the relay can't call anywhere else
+- The website grab is server-side (so your browser's CORS can't block it) but SSRF-guarded
+  and capped — no private targets, no unbounded downloads
 - No keys ever touch our database, because there is no database
 
 ---
@@ -231,6 +240,7 @@ one fails.
 - **Zero LLM in the guard.** Deterministic rules. Same input, same verdict, always.
 - **Zero network in the CLI.** Never uploads your code. Works on an airplane.
 - **Keys never touch our server.** The Studio relay is a blind forwarder, nothing more.
+- **Guarded website fetch.** Public pages only — loopback, LAN and cloud-metadata are refused.
 - **Zero cost.** MIT licensed. Free forever. Star it if it earns it.
 
 ## Project layout
@@ -261,6 +271,6 @@ why this exists — come make it sharper. `CONTRIBUTING.md`, `CODE_OF_CONDUCT.md
 
 built with ♥ by [@thesajidalam](https://github.com/thesajidalam) · MIT licensed ·
 [docs](https://github.com/thesajidalam/vibeguard) · [issues](https://github.com/thesajidalam/vibeguard/issues) ·
-[AI Studio](https://guardvibe.vercel.app)
+[AI Studio](https://guardvibe.vercel.app) · [portfolio](https://sajidalam.pages.dev)
 
 </div>
