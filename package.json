@@ -1,0 +1,44 @@
+{
+  "name": "vibeguard",
+  "version": "1.0.0",
+  "description": "The AI code reality check. Stops vibe-coded code that 'looks right' from silently shipping into production.",
+  "type": "module",
+  "bin": {
+    "vibeguard": "bin/vibeguard.mjs"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "test": "node --test \"test/*.test.mjs\"",
+    "demo": "node bin/vibeguard.mjs demo"
+  },
+  "keywords": [
+    "ai",
+    "vibe-coding",
+    "code-review",
+    "git-hooks",
+    "pre-commit",
+    "security",
+    "cli",
+    "llm",
+    "false-clean-pass"
+  ],
+  "files": [
+    "bin",
+    "src",
+    "demo",
+    "LICENSE",
+    "README.md"
+  ],
+  "license": "MIT",
+  "author": "@thesajidalam",
+  "homepage": "https://github.com/thesajidalam/vibeguard#readme",
+  "bugs": {
+    "url": "https://github.com/thesajidalam/vibeguard/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/thesajidalam/vibeguard.git"
+  }
+}

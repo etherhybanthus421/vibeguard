@@ -1,0 +1,51 @@
+# vibeguard configuration
+# built by @thesajidalam — https://github.com/thesajidalam/vibeguard
+#
+# Copy to .vibeguard.yaml in your repo root.
+# Every value below is the default, so a config file is fully optional.
+
+# File that declares your required environment variables.
+# Any process.env.X / os.getenv("X") read WITHOUT a fallback and missing here is flagged.
+envfile: .env.example
+
+rules:
+  secret: error        # hardcoded API keys, tokens, private keys
+  envhole: error       # env vars read but never declared
+  swallow: error       # empty catch/except blocks that silence failures
+  nullaccess: error    # property access on results that can be null (the AI classic)
+  sleepfix: warning    # time.sleep / setTimeout used to "fix" races
+  debugprint: warning  # console.log / print / debugger left behind
+  dummy: warning       # lorem ipsum, changeme, your-api-key, TODO
+  minified: warning    # enormous single-line blobs
+  deadimport: warning  # imported but never used
+  bignew: info         # 800+ lines added in one shot — review carefully
+
+# Files and paths to ignore. Supports *, ** and ? wildcards.
+exclude:
+  - "node_modules/**"
+  - "vendor/**"
+  - "dist/**"
+  - "build/**"
+  - "*.lock"
+  - "package-lock.json"
+  - "yarn.lock"
+  - "pnpm-lock.yaml"
+  - "*.min.js"
+  - "*.map"
+  - "*.svg"
+  - "*.png"
+  - "*.jpg"
+  - "*.jpeg"
+  - "*.gif"
+  - "*.webp"
+  - "*.ico"
+  - "*.woff"
+  - "*.woff2"
+  - "*.ttf"
+  - "*.pdf"
+  - ".env"
+
+# If set, only files matching these patterns are checked (default: all).
+# paths:
+#   - "src/**"
+#   - "*.{js,ts,py}"

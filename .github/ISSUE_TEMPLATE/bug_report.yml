@@ -1,0 +1,46 @@
+name: Bug report
+description: Report something that isn't working
+title: "[bug] "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to make vibeguard better.
+  - type: input
+    id: version
+    attributes:
+      label: vibeguard version
+      description: Output of `vibeguard --version`
+      placeholder: "1.0.0"
+    validations:
+      required: true
+  - type: dropdown
+    id: platform
+    attributes:
+      label: Platform
+      options: [Linux, macOS, Windows, Other]
+      default: 0
+    validations:
+      required: true
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: A false positive? A missed catch? A crash? Show the code snippet that triggered it (redact real secrets — use "your-api-key" style placeholders).
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What did you expect?
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: Reproduction steps
+      placeholder: |
+        1. Create file `app.ts` with ...
+        2. Run `vibeguard scan app.ts`
+        3. See ...

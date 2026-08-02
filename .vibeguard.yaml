@@ -1,0 +1,11 @@
+# vibeguard configuration — built by @thesajidalam
+# this repo ships with standard exclusions: test fixtures and the demo
+# fixture intentionally contain the "bad" code vibeguard is built to catch.
+
+envfile: .env.example
+
+exclude:
+  - "test/**"
+  - "demo/**"
+  - ".vibeguard.example.yaml"
+  - "*.lock"

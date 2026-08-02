@@ -1,0 +1,28 @@
+name: Feature request
+description: Suggest an idea for vibeguard
+title: "[feat] "
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        The best features come from a real "vibe-coded" miss. Tell us what slipped through.
+  - type: textarea
+    id: problem
+    attributes:
+      label: The problem
+      description: What bad AI-code pattern got through? Show the snippet (use "your-api-key" style placeholders).
+    validations:
+      required: true
+  - type: textarea
+    id: solution
+    attributes:
+      label: Proposed behavior
+      description: What should vibeguard do?
+    validations:
+      required: true
+  - type: input
+    id: rule
+    attributes:
+      label: New rule or change to an existing rule?
+      description: e.g. `new rule: sandbox` or `tweak: swallow`
