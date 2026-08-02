@@ -1,4 +1,5 @@
 import { red, green, yellow, blue, cyan, gray, bold, dim } from "./ansi.mjs";
+import { VERSION } from "./logo.mjs";
 
 const ICON = { error: red("✘"), warning: yellow("⚠"), info: blue("ℹ") };
 const LABEL = { error: "error", warning: "warning", info: "info" };
@@ -23,7 +24,7 @@ export function renderReport(result, opts = {}) {
 
   if (opts.json) {
     return JSON.stringify({
-      vibeguard: "1.0.0",
+      vibeguard: VERSION,
       blocking,
       counts,
       findings: findings.map((f) => ({

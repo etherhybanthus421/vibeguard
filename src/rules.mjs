@@ -141,16 +141,17 @@ export const ENVHOLE = {
   run(file, lines, ctx) {
     const findings = [];
     for (const { line, text } of lines) {
+      const code = stripComments(text);
       for (const reader of ENV_READERS) {
         reader.re.lastIndex = 0;
         let m;
-        while ((m = reader.re.exec(text)) !== null) {
+        while ((m = reader.re.exec(code)) !== null) {
           const key = m[1];
           if (!key) continue;
           if (BUILTIN_ENV.has(key)) continue;
           if (ctx.envKeys && ctx.envKeys.has(key)) continue;
           if (reader.needsDefault && m[2] !== undefined) continue;
-          const after = text.slice(reader.re.lastIndex);
+          const after = code.slice(reader.re.lastIndex);
           if (/\?\?|\|\|/.test(after)) continue;
           findings.push({ line, message: `reads "${key}" but it is never declared and has no fallback (missing from ${ctx.envFileLabel || "envfile"})` });
           break;

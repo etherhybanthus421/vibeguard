@@ -48,6 +48,16 @@ test("envhole: understands os.getenv with default", () => {
   assert.ok(!out[0].message.includes("ALSO_MISSING"));
 });
 
+test("envhole: ignores reads that only appear in comments", () => {
+  const out = ENVHOLE.run("a.ts", L([
+    "// todo: read process.env.AUTH_TOKEN here",
+    "/* process.env.DEPRECATED is gone now */",
+    "const a = process.env.REAL_KEY;",
+  ]), { envKeys: new Set(), envFileLabel: ".env.example" });
+  assert.equal(out.length, 1);
+  assert.ok(out[0].message.includes("REAL_KEY"));
+});
+
 test("swallow: catches empty single-line and multiline catch", () => {
   const out = SWALLOW.run("a.ts", L([
     "try {",

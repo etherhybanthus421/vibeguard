@@ -1,12 +1,14 @@
-<p align="center">
-  <img src="https://img.shields.io/badge/dependencies-0-brightgreen" alt="0 dependencies">
-  <img src="https://img.shields.io/badge/node-%3E%3D18-green" alt="node >=18">
-  <img src="https://img.shields.io/badge/license-MIT-blue" alt="MIT">
-  <img src="https://img.shields.io/github/actions/workflow/status/thesajidalam/vibeguard/ci.yml?branch=main&label=CI" alt="CI">
-  <img src="https://img.shields.io/badge/tests-47%20%2F%2047-passing-brightgreen" alt="47/47 tests passing">
-  <img src="https://img.shields.io/badge/built%20by-%40thesajidalam-orange" alt="built by @thesajidalam">
-  <img src="https://img.shields.io/badge/live%20demo-guardvibe.vercel.app-cyan" alt="live demo">
-</p>
+<div align="center">
+
+# 🛡 vibeguard
+
+### Your AI is confident. **vibeguard is not.**
+
+A zero-dependency, deterministic pre-commit guard that catches the **"false-clean" bugs**
+AI models keep shipping — empty `catch {}` blocks, null derefs, invented env vars,
+and the API key that just hit GitHub.
+
+**One install. Every commit. Zero excuses.**
 
 ```
  __      __     _                      _
@@ -14,97 +16,107 @@
   \ \/\/ / _` | '_ \/ _` |/ _` |/ _` | ' \/ -_)| ' \
    \_/\_/\__,_|_.__/\__,_|\__, |\__,_|_||_\___||_||_|
                           |___/
-      the AI code reality check. built by @thesajidalam
+     the AI code reality check · built by @thesajidalam
 ```
 
-# vibeguard
+<br>
 
-> **Vibe-coded code *looks* right. vibeguard proves it isn't.**
+[![Dependencies](https://img.shields.io/badge/dependencies-0-brightgreen)](https://github.com/thesajidalam/vibeguard)
+[![Node](https://img.shields.io/badge/node-%3E%3D18-green)](https://github.com/thesajidalam/vibeguard)
+[![License](https://img.shields.io/badge/license-MIT-blue)](https://github.com/thesajidalam/vibeguard/blob/main/LICENSE)
+[![CI](https://img.shields.io/github/actions/workflow/status/thesajidalam/vibeguard/ci.yml?branch=main&label=CI)](https://github.com/thesajidalam/vibeguard/actions)
+[![Tests](https://img.shields.io/badge/tests-48%20%2F%2048-passing-brightgreen)](https://github.com/thesajidalam/vibeguard)
+[![Live demo](https://img.shields.io/badge/live%20demo-guardvibe.vercel.app-cyan)](https://guardvibe.vercel.app)
 
-Your AI copilot generated 400 lines of confidence. vibeguard scans every diff for the 7 kinds of
-"false clean" bugs AI models are **statistically obsessed** with — the empty `catch` blocks that
-swallow errors, the `null` you confidently `.find()` into, the `process.env.X` nobody ever wrote,
-the `sk-live-...` key that just made it to GitHub.
+**▶ [Try it live in your browser](https://guardvibe.vercel.app) — paste your own code. It runs locally, nothing is uploaded.**
 
-Attach it to git once. From then on, **a bad diff literally cannot be committed.**
+</div>
 
 ---
 
-## The 60-second install
+## The problem
+
+Vibe-coded code *looks* right. Clean formatting. Confident names. Plausible logic.
+Your copilot has never once asked you to double-check it.
+
+But under the polish, the same handful of bugs appear **again and again**:
+
+| | vibe coding | vibeguard |
+|---|---|---|
+| The diff | "looks right" | scanned line-by-line, every time |
+| Empty `catch {}` | ✨ silent failure | 🛑 blocked |
+| `user.find(...).email` on null | 💥 prod outage at 3am | 🛑 blocked |
+| `process.env.KEY` that never existed | 🔇 dies at runtime | 🛑 blocked |
+| Hardcoded API key | 🚨 on Hacker News | 🛑 blocked |
+| `lorem ipsum`, `your-api-key` | 😅 shipped to customers | ⚠️ warned |
+| 800 lines added in one shot | 📖 "trust me, I read it" | ⚠️ flagged |
+
+Most "AI code review" tools are just *another LLM* bolted onto your workflow — slow, costly,
+and happy to agree with you. vibeguard is the opposite: **deterministic, offline, millisecond-fast,
+and it never gives your code a participation trophy.**
+
+## Quick start
 
 ```bash
 npm install -g vibeguard
 cd your-project
-vibeguard install          # adds the pre-commit hook (one line)
+vibeguard install          # attach the pre-commit hook
 ```
 
-Done. The next time you (or your AI) stage a red-flagged diff, `git commit` refuses:
+That's it. The next time you — or your AI — stage a red-flagged diff, `git commit` refuses:
 
 ```
 ✘ BLOCKED — 4 errors, 3 warnings ([#---------] 5/100)
   Your AI is confident. vibeguard is not.
-  fix what's red, then vibeguard lets you through — built by @thesajidalam
+  fix what's red, then vibeguard lets you through.
 ```
 
-## Why this is different
+Also gate your pushes (scans the full diff, not just staged):
 
-Most "AI code review" tools are another LLM bolted onto your workflow — slow, costly, and it'll
-*agree with you*. vibeguard is the opposite:
-
-| | vibe coding | vibeguard |
-|---|---|---|
-| The diff | "looks right" | scanned line-by-line |
-| Empty `catch {}` | ✨ silent | 🛑 blocked |
-| `user.find(...).email` on null | 💥 prod outage | 🛑 blocked |
-| `process.env.KEY` that never existed | 🔇 fails at runtime | 🛑 blocked |
-| hardcoded API key | 🚨 on Hacker News | 🛑 blocked |
-| `lorem ipsum` / `your-api-key` | 😅 shipped | ⚠️ warned |
-
-**Zero dependencies. Zero LLM. Zero excuses.** It runs in milliseconds on every commit, works
-offline, and never uploads your code anywhere.
+```bash
+vibeguard install --pre-push
+```
 
 ## The wow moment
 
-> ### 🎮 Try it live — no install, no upload
-> **guardvibe.vercel.app** — paste *your own* code (your copilot's, your teammate's, your
-> 2am self) into the browser and watch vibeguard catch it in real time. It runs entirely in
-> your browser. Nothing leaves your machine. Source lives in [`web/`](web/).
->
-> **Deploying:** the site is a pure static folder in `web/`. A root-level `vercel.json`
-> routes everything to it, so a plain Vercel import + push just works — no Root Directory
-> setting required. (Optionally set **Root Directory** to `web` in Vercel → Settings → General
-> instead; both produce the same result.)
+Run vibeguard against a realistic AI-generated function and watch it catch a
+**whole stack of bugs at once** — leaked keys, an invented env var, a swallowed
+error, a null deref, a sleep-hack, dead imports, debug leftovers:
 
 ```bash
 vibeguard demo
 ```
 
-Runs the tool against a realistic AI-generated function — the kind your copilot writes at 1am
-when it's "pretty sure this works." Watch it catch **all seven** bugs at once. Then run it on your
-own repo and feel the mood change:
+Then run it on your own work:
 
 ```bash
-vibeguard scan .      # scan everything
-vibeguard check       # check your staged changes
-vibeguard doctor      # is my hook installed? what will it run?
+vibeguard scan .           # scan a whole repo
+vibeguard check            # scan what's staged (default)
+vibeguard doctor           # is my hook installed? what will it run?
 ```
+
+Or skip the install entirely — the [live demo](https://guardvibe.vercel.app) runs the
+same rules **in your browser**. Paste your copilot's output. Nothing leaves your machine.
 
 ## The 10 rules
 
+Tuned for the exact patterns LLMs repeat most. Every rule is configurable.
+
 | rule | what it catches | severity |
 |---|---|---|
-| `secret` | hardcoded API keys, passwords, private keys | 🔴 error |
-| `envhole` | reads `process.env.X` never declared in `.env.example` | 🔴 error |
-| `swallow` | empty `catch {}` blocks that erase failures | 🔴 error |
-| `nullaccess` | `.find()` / `.match()` results dereferenced with `.` | 🔴 error |
-| `sleepfix` | `await sleep(...)` hacks instead of real fixes | 🟠 error |
-| `dummy` | `lorem ipsum`, `your-api-key`, `changeme`, `TODO` | 🟡 warning |
-| `debugprint` | `console.log` / `debugger` left in non-test code | 🟡 warning |
-| `deadimport` | imports nobody uses | 🟡 warning |
-| `minified` | minified/bundled files committed to source | 🟡 warning |
+| `secret` | hardcoded API keys, passwords, private keys, JWTs | 🔴 error |
+| `envhole` | `process.env.X` / `os.getenv("X")` never declared, no fallback | 🔴 error |
+| `swallow` | empty `catch {}` / `except: pass` blocks that erase failures | 🔴 error |
+| `nullaccess` | `.find()` / `.querySelector()` / `JSON.parse()` results dereferenced with `.` | 🔴 error |
+| `sleepfix` | `sleep()` hacks in production code that hide races | 🔴 error |
+| `dummy` | `lorem ipsum`, `your-api-key`, `changeme`, `TODO`, `FIXME` | 🟡 warning |
+| `debugprint` | `console.log` / `print()` / `debugger` left in non-test code | 🟡 warning |
+| `deadimport` | imports nobody ever uses | 🟡 warning |
+| `minified` | 400+ character lines — minified or pasted blobs | 🟡 warning |
 | `bignew` | a new file big enough that nobody read it | 🟡 warning |
 
-Every rule can be tuned, muted, or promoted to a hard error in `.vibeguard.yaml`:
+Errors block the commit. Warnings let you through — but they *are* being watched.
+Promote, mute, or retune any rule in `.vibeguard.yaml`:
 
 ```yaml
 envfile: .env.example
@@ -115,22 +127,25 @@ rules:
   dummy: ignore          # you do you
 ```
 
+Create one with `vibeguard init`.
+
 ## Commands
 
 ```
-vibeguard check          scan staged changes (default)
-  --all                  scan the full diff vs the default branch
-  --base <ref>           scan the diff since a specific ref
-  --json                 machine-readable output for CI
-  --quiet                only print problems
-vibeguard scan <path>    scan a directory or file
-vibeguard init           write .vibeguard.yaml
-vibeguard install        add the pre-commit hook
-  --pre-push             also add the pre-push gate (check --all)
-vibeguard uninstall      remove the hook
-vibeguard doctor         verify your setup
-vibeguard demo           the wow moment
-vibeguard version, -v    print version      vibeguard help, -h    this screen
+vibeguard check           scan staged changes (default)
+  --all                   scan the full diff vs the default branch
+  --base <ref>            scan the diff since a specific ref
+  --json                  machine-readable output for CI
+  --quiet                 only print problems
+vibeguard scan <path>     scan a directory or file
+vibeguard init            write .vibeguard.yaml
+vibeguard install         add the pre-commit hook
+  --pre-push              also add the pre-push gate (check --all)
+vibeguard uninstall       remove the hooks
+vibeguard doctor          verify your setup
+vibeguard demo            the wow moment
+vibeguard version, -v     print version
+vibeguard help, -h        this screen
 ```
 
 ## Exit codes (CI-friendly)
@@ -141,21 +156,39 @@ vibeguard version, -v    print version      vibeguard help, -h    this screen
 | `1` | blocked — errors found |
 | `2` | usage error / can't read the repo |
 
+```bash
+vibeguard check --json    # drop this into any pipeline
+```
+
+## Why it can be trusted
+
+- **Zero dependencies.** A single Node script. No `node_modules`, no supply chain.
+- **Zero LLM.** Deterministic rules. The same input, the same verdict, always.
+- **Zero network.** Never uploads your code. Works on an airplane.
+- **Zero cost.** MIT licensed. Free forever. Star it if it earns it.
+
 ## Dogfooding
 
-vibeguard guards itself. This repo runs `vibeguard scan .` as a pre-commit hook, and its own
-source trips the warnings you see above — because the literal words `lorem ipsum`, `changeme`, and
-`TODO` are defined right there in the pattern table. A tool that strict is the one you want on
-your commits. Check out the tests: **47 test cases, zero test dependencies**, `npm test`.
+vibeguard guards itself. This repo runs `vibeguard scan .` as its own pre-commit hook, and its
+source trips its own warnings on purpose — the literal patterns live right there in the code.
+A tool that strict is exactly the one you want watching *your* commits.
+
+**48 test cases. Zero test dependencies.** `npm test`.
 
 ## Contributing
 
-Open an issue. Open a PR. This is a young tool built for a whole generation of code that never
-met a reviewer. If you've been burned by a false-clean AI diff, you already know why this exists.
+Open an issue. Open a PR. If you've been burned by a false-clean AI diff, you already know
+why this exists — come make it sharper. `CONTRIBUTING.md`, `CODE_OF_CONDUCT.md`, and
+`SECURITY.md` are all there.
 
 ---
 
-<p align="center">
-  <strong>vibeguard</strong> — <em>Your AI is confident. vibeguard is not.</em><br>
-  built with ❤️ by <a href="https://github.com/thesajidalam">@thesajidalam</a> · MIT licensed
-</p>
+<div align="center">
+
+**vibeguard** — *Your AI is confident. vibeguard is not.*
+
+built with ❤️ by [@thesajidalam](https://github.com/thesajidalam) · MIT licensed ·
+[docs](https://github.com/thesajidalam/vibeguard) · [issues](https://github.com/thesajidalam/vibeguard/issues) ·
+[live demo](https://guardvibe.vercel.app)
+
+</div>

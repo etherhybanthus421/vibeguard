@@ -132,26 +132,37 @@ function check(flags) {
   }
 
   const { config } = load(flags);
-  let raw;
+  let files;
 
   try {
-    if (flags.staged) {
-      raw = gitDiff({ staged: true });
-    } else if (flags.all) {
-      const staged = gitDiff({ staged: true });
-      const unstaged = gitDiff({});
-      raw = staged + "\n" + unstaged;
+    if (flags.all) {
+      const byFile = new Map();
+      for (const raw of [gitDiff({ staged: true }), gitDiff({})]) {
+        for (const f of parseUnified(raw)) {
+          const key = f.file;
+          if (!byFile.has(key)) byFile.set(key, { ...f, added: [] });
+          const cur = byFile.get(key);
+          cur.added.push(...f.added);
+          cur.newFile = cur.newFile || f.newFile;
+        }
+      }
+      files = [...byFile.values()].map((f) => ({ ...f, added: f.added.slice().sort((a, b) => a.line - b.line) }));
     } else {
-      const base = flags.base || resolveDefaultBase();
-      if (base) raw = gitDiff({ base });
-      else raw = gitDiff({ staged: true });
+      let raw;
+      if (flags.staged) {
+        raw = gitDiff({ staged: true });
+      } else {
+        const base = flags.base || resolveDefaultBase();
+        if (base) raw = gitDiff({ base });
+        else raw = gitDiff({ staged: true });
+      }
+      files = parseUnified(raw);
     }
   } catch {
     process.stderr.write(`${fatal("could not read the git diff")}\n`);
     return 2;
   }
 
-  const files = parseUnified(raw);
   const result = runEngine(files, config, { envFile: path.resolve(config.envfile || ".env.example") });
 
   const text = renderReport(result, { json: flags.json, quiet: flags.quiet });
