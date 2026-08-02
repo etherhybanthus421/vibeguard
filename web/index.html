@@ -161,24 +161,38 @@
             </div>
           </div>
 
-          <div class="editor">
+          <div class="editor" id="editorBox">
             <div class="gutter" id="gutter" aria-hidden="true"></div>
             <textarea id="code" spellcheck="false" autocomplete="off" autocapitalize="off" aria-label="code to scan"
               placeholder="Paste code to scan — or load a sample, upload a file, or fetch a public GitHub repo.&#10;&#10;const user = db.users.find((u) =&gt; u.id === id);&#10;const key = &quot;sk-live-&quot; + &quot;abc&quot;.repeat(8);&#10;const token = process.env.AUTH_TOKEN;&#10;try { await fetch(user.email); } catch (e) {}"></textarea>
           </div>
 
           <div class="toolbar">
-            <button class="tool-btn" id="btnSample" type="button">Load sample</button>
+            <label class="sample-pick">
+              <select id="sampleSel" aria-label="Choose a sample snippet"></select>
+              <button class="tool-btn" id="btnSample" type="button">Load sample</button>
+            </label>
             <button class="tool-btn" id="btnUpload" type="button">Upload files</button>
             <input id="fileInput" type="file" multiple hidden />
             <button class="tool-btn" id="btnClear" type="button">Clear</button>
+            <button class="tool-btn" id="btnExpand" type="button" title="Expand / collapse the editor">Expand editor</button>
             <span class="file-label" id="fileLabel"></span>
           </div>
 
-          <div class="gh-fetch">
-            <input id="ghUrl" type="text" placeholder="https://github.com/username/repository (public repo)" spellcheck="false" aria-label="GitHub repository URL" />
-            <button class="tool-btn" id="btnFetchGh" type="button">Fetch repo</button>
-            <span class="gh-status" id="ghStatus"></span>
+          <div class="terminal">
+            <div class="term-bar">
+              <span class="term-dots" aria-hidden="true"><i></i><i></i><i></i></span>
+              <span class="term-title">fetch repo</span>
+              <span class="term-label">public · no key</span>
+            </div>
+            <div class="term-body">
+              <div class="term-line">
+                <span class="term-prompt" aria-hidden="true">$</span>
+                <input id="ghUrl" type="text" placeholder="github.com/username/repository" spellcheck="false" autocomplete="off" aria-label="GitHub repository URL" />
+                <button class="tool-btn" id="btnFetchGh" type="button">⏎ fetch</button>
+              </div>
+              <div class="term-out"><span class="gh-status" id="ghStatus"></span><span class="term-cursor" aria-hidden="true"></span></div>
+            </div>
           </div>
 
           <div class="run-row">

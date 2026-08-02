@@ -279,9 +279,15 @@ select:focus, input[type="text"]:focus, input[type="password"]:focus { border-co
 .provider-note { font-size: 12px; color: var(--faint); line-height: 1.5; margin-top: 2px; }
 
 /* editor */
-.editor { display: flex; min-height: 300px; background: #060910; flex: 1; position: relative; }
+.editor {
+  display: flex; position: relative; overflow: hidden;
+  height: clamp(320px, 48vh, 560px);
+  background: #060910;
+  transition: height 0.25s ease;
+}
+.editor.expanded { height: 82vh; }
 .gutter {
-  width: 46px; flex: 0 0 46px; overflow: hidden;
+  width: 46px; flex: 0 0 46px; overflow: hidden; height: 100%;
   text-align: right; user-select: none;
   font-family: var(--mono); font-size: 12px; line-height: 1.7;
   color: #33455c; background: #060910;
@@ -294,16 +300,17 @@ select:focus, input[type="text"]:focus, input[type="password"]:focus { border-co
 .gutter div.has-warn .mark { color: var(--yellow); opacity: 1; }
 .gutter div.cur { background: rgba(34, 211, 238, 0.06); color: #7f9dbb; }
 #code {
-  flex: 1; min-width: 0; min-height: 300px; resize: none;
+  flex: 1; min-width: 0; height: 100%; resize: none;
   background: transparent; color: #cfe0ee;
   border: none; outline: none; padding: 14px 14px 14px 16px;
   font-family: var(--mono); font-size: 12.5px; line-height: 1.7; caret-color: var(--cyan);
+  scrollbar-color: #2a3d52 transparent;
 }
 #code::placeholder { color: #3d4f66; }
 
-.toolbar, .gh-fetch { display: flex; align-items: center; gap: 8px; padding: 8px 12px; border-top: 1px solid var(--border); flex-wrap: wrap; }
-.gh-fetch { border-top: none; }
-.gh-fetch input { flex: 1; font-family: var(--mono); font-size: 12.5px; }
+.toolbar { display: flex; align-items: center; gap: 8px; padding: 8px 12px; border-top: 1px solid var(--border); flex-wrap: wrap; }
+.sample-pick { display: flex; align-items: center; gap: 6px; }
+.sample-pick select { width: auto; min-width: 170px; padding: 7px 26px 7px 10px; font-size: 12.5px; }
 .tool-btn {
   font-family: var(--sans); font-size: 12.5px; font-weight: 600;
   color: var(--muted); background: transparent;
@@ -317,6 +324,32 @@ select:focus, input[type="text"]:focus, input[type="password"]:focus { border-co
 .gh-status { font-size: 12px; color: var(--faint); }
 .gh-status.ok { color: var(--green); }
 .gh-status.err { color: var(--red); }
+
+/* terminal-style fetch */
+.terminal { border-top: 1px solid var(--border); background: #05070d; font-family: var(--mono); }
+.term-bar {
+  display: flex; align-items: center; gap: 10px;
+  padding: 8px 12px; border-bottom: 1px solid var(--border);
+  background: rgba(255, 255, 255, 0.02);
+}
+.term-dots { display: flex; gap: 5px; }
+.term-dots i { width: 10px; height: 10px; border-radius: 50%; background: #1c2a3c; }
+.term-dots i:nth-child(1) { background: #f87171; }
+.term-dots i:nth-child(2) { background: #fbbf24; }
+.term-dots i:nth-child(3) { background: #34d399; }
+.term-title { font-size: 11.5px; color: var(--muted); letter-spacing: 0.04em; }
+.term-label { margin-left: auto; font-size: 10.5px; color: var(--faint); text-transform: uppercase; letter-spacing: 0.08em; }
+.term-body { padding: 10px 12px 12px; display: grid; gap: 8px; }
+.term-line { display: flex; align-items: center; gap: 8px; }
+.term-prompt { color: var(--green); font-size: 12.5px; font-weight: 700; }
+.term-line input { flex: 1; font-family: var(--mono); font-size: 12.5px; background: #080b12; }
+.term-out { display: flex; align-items: center; gap: 8px; min-height: 16px; }
+.term-cursor {
+  display: none; width: 8px; height: 15px; background: var(--cyan);
+  animation: blink 1.1s step-end infinite;
+}
+.term-out:has(.gh-status:empty) .term-cursor { display: inline-block; }
+@keyframes blink { 50% { opacity: 0; } }
 
 .run-row { display: flex; align-items: center; gap: 12px; padding: 10px 12px; border-top: 1px solid var(--border); }
 .btn-run { flex: 1; justify-content: center; }
@@ -484,6 +517,10 @@ select:focus, input[type="text"]:focus, input[type="password"]:focus { border-co
   .provider-row { flex-direction: column; align-items: stretch; }
   .field { flex: 1 1 auto; }
   .res-actions .tool-btn { flex: 1; }
+  .editor.expanded { height: 70vh; }
+  .sample-pick { width: 100%; }
+  .sample-pick select { flex: 1; min-width: 0; }
+  .term-label { display: none; }
 }
 
 @media (prefers-reduced-motion: reduce) {

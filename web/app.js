@@ -643,23 +643,126 @@ function setEditorFiles(files) {
   $("fileLabel").textContent = files && files.length > 1 ? files.length + " files loaded" : "";
 }
 
-const SAMPLE =
-  'import { db } from "./db";\n' +
-  'import { helper } from "./helper";\n' +
-  "\n" +
-  "export async function getUser(id: string) {\n" +
-  "  const user = db.users.find((u) => u.id === id);\n" +
-  '  const apiKey = "sk-live-9f2c1a5b8e4d7a0c3f6e9b1d2a4c7e8f";\n' +
-  "  const token = process.env.AUTH_TOKEN;\n" +
-  "  try {\n" +
-  '    await fetch(`https://api.example.com/user/${user.email}`);\n' +
-  "  } catch (e) {}\n" +
-  '  const webhook = "https://example.com/your-secret-endpoint";\n' +
-  "  await new Promise((r) => setTimeout(r, 5000));\n" +
-  "  return { ...user, apiKey };\n" +
-  "}\n" +
-  "\n" +
-  'console.log("debug: loaded user", user);\n';
+const SAMPLES = {
+  demo: {
+    label: "TypeScript API handler",
+    file: "src/demo.ts",
+    code:
+      'import { db } from "./db";\n' +
+      'import { helper } from "./helper";\n' +
+      "\n" +
+      "export async function getUser(id: string) {\n" +
+      "  const user = db.users.find((u) => u.id === id);\n" +
+      '  const apiKey = "sk-live-9f2c1a5b8e4d7a0c3f6e9b1d2a4c7e8f";\n' +
+      "  const token = process.env.AUTH_TOKEN;\n" +
+      "  try {\n" +
+      '    await fetch(`https://api.example.com/user/${user.email}`);\n' +
+      "  } catch (e) {}\n" +
+      '  const webhook = "https://example.com/your-secret-endpoint";\n' +
+      "  await new Promise((r) => setTimeout(r, 5000));\n" +
+      "  return { ...user, apiKey };\n" +
+      "}\n" +
+      "\n" +
+      'console.log("debug: loaded user", user);\n',
+  },
+  flask: {
+    label: "Python Flask app",
+    file: "app.py",
+    code:
+      "import os\n" +
+      "from flask import Flask, request\n" +
+      "\n" +
+      "app = Flask(__name__)\n" +
+      "\n" +
+      'ADMIN_PASSWORD = "hunter2-rotate-me"\n' +
+      "\n" +
+      '@app.route("/exec")\n' +
+      "def exec_cmd():\n" +
+      '    host = request.args.get("host", "localhost")\n' +
+      '    output = os.popen("ping -c 1 " + host).read()\n' +
+      "    return output\n" +
+      "\n" +
+      '@app.route("/login")\n' +
+      "def login():\n" +
+      '    user = db.users.find_one(request.form["username"])\n' +
+      "    if user[\"password\"] == ADMIN_PASSWORD:\n" +
+      '        return "welcome"\n' +
+      "    try:\n" +
+      "        pass\n" +
+      "    except Exception:\n" +
+      "        pass\n",
+  },
+  node: {
+    label: "Node.js server",
+    file: "server.js",
+    code:
+      'import http from "http";\n' +
+      'import fs from "fs";\n' +
+      'import { sign } from "jsonwebtoken";\n' +
+      "\n" +
+      'const JWT_SECRET = "jwt-secret-change-me";\n' +
+      "\n" +
+      "http.createServer((req, res) => {\n" +
+      '  const page = fs.readFileSync(req.url).toString();\n' +
+      '  const token = sign({ role: "admin" }, JWT_SECRET);\n' +
+      '  res.end(`<script>var tok="${token}";</script>` + page);\n' +
+      '}).listen(process.env.PORT ?? 3000);\n' +
+      "\n" +
+      '// TODO: add rate limiting and auth middleware\n',
+  },
+  shell: {
+    label: "Deploy shell script",
+    file: "deploy.sh",
+    code:
+      "#!/bin/sh\n" +
+      "set -e\n" +
+      '\nDEPLOY_KEY="sk-live-deploy-8d4f2a1c"\n' +
+      'eval "$(curl -s https://example.com/script)"\n' +
+      'ssh deploy@server "git pull && npm run build" || exit 1\n' +
+      'echo "deployed ok"\n' +
+      "echo \"api key: $DEPLOY_KEY\"\n" +
+      "# FIXME: add rollback on failed build\n",
+  },
+  go: {
+    label: "Go CLI tool",
+    file: "main.go",
+    code:
+      "package main\n" +
+      "\n" +
+      'import (\n\t"fmt"\n\t"net/http"\n\t"os"\n)\n' +
+      "\n" +
+      "func main() {\n" +
+      '\tresp, err := http.Get(os.Getenv("REPO_ENDPOINT"))\n' +
+      "\t_ = err\n" +
+      '\tfmt.Println("status:", resp.StatusCode)\n' +
+      "\t// FIXME: retry with backoff, then log properly\n" +
+      "}\n",
+  },
+  config: {
+    label: "Config with secrets",
+    file: "settings.json",
+    code:
+      '{\n' +
+      '  "database": {\n' +
+      '    "host": "db.prod.internal",\n' +
+      '    "password": "prod-db-pass-2024"\n' +
+      "  },\n" +
+      '  "api": {\n' +
+      '    "key": "your-api-key",\n' +
+      '    "webhook": "https://example.com/your-secret-endpoint"\n' +
+      "  },\n" +
+      '  "debug": true\n' +
+      "}\n",
+  },
+};
+
+function renderSampleSelect() {
+  const sel = $("sampleSel");
+  sel.innerHTML = Object.keys(SAMPLES)
+    .map((k) => `<option value="${k}">${ESC(SAMPLES[k].label)}</option>`)
+    .join("");
+  sel.value = "demo";
+}
 
 /* ---------------- rendering: static findings ---------------- */
 
@@ -714,6 +817,7 @@ function renderGutter(lines, findings) {
     html += `<div class="${cls}">${i + 1}<span class="mark">${glyph}</span></div>`;
   }
   gutterEl.innerHTML = html;
+  syncGutter();
 }
 function syncGutter() { gutterEl.scrollTop = codeEl.scrollTop; }
 function cursorLine() {
@@ -820,8 +924,9 @@ async function runAI() {
 
 /* ---------------- sample / upload / github ---------------- */
 
-function loadSample() {
-  setEditorFiles([{ name: "src/demo.ts", text: SAMPLE }]);
+function loadSample(key) {
+  const s = SAMPLES[key] || SAMPLES.demo;
+  setEditorFiles([{ name: s.file, text: s.code }]);
   if (activeMode !== "static") setMode("static");
   runStatic();
   scrollToStudio();
@@ -847,16 +952,19 @@ function handleFiles(fileList) {
 }
 
 function parseGhUrl(url) {
-  const m = String(url).match(/github\.com\/([^/\s]+)\/([^/\s#?]+)/i);
+  const m = String(url).trim().match(/^(?:https?:\/\/)?(?:www\.)?github\.com\/([^/\s]+)\/([^/\s#?]+)/i);
   if (!m) return null;
   return { owner: m[1], repo: m[2].replace(/\.git$/, "") };
 }
 
 async function fetchRepo(url, runAfter) {
   const gh = parseGhUrl(url);
-  if (!gh) { $("ghStatus").textContent = "Enter a valid public GitHub repo URL."; $("ghStatus").className = "gh-status err"; return; }
+  if (!gh) { $("ghStatus").textContent = "Enter a valid public GitHub repo URL, like github.com/owner/repo"; $("ghStatus").className = "gh-status err"; return; }
   $("ghStatus").textContent = "Resolving repo…";
   $("ghStatus").className = "gh-status";
+  const MAX_BLOB = 2_000_000;
+  const MAX_FILE_CHARS = 120000;
+  const MAX_TOTAL_CHARS = 700000;
   try {
     const metaRes = await fetch("https://api.github.com/repos/" + gh.owner + "/" + gh.repo);
     if (!metaRes.ok) throw new Error("Repo not found or not public (HTTP " + metaRes.status + ").");
@@ -867,26 +975,37 @@ async function fetchRepo(url, runAfter) {
     if (!treeRes.ok) throw new Error("Could not list repo files (HTTP " + treeRes.status + ").");
     const tree = await treeRes.json();
     const codeFiles = (tree.tree || [])
-      .filter((t) => t.type === "blob" && CODE_EXTS.test(t.path) && !isTestFile(t.path))
+      .filter((t) => t.type === "blob" && CODE_EXTS.test(t.path) && !isTestFile(t.path) && (!t.size || t.size <= MAX_BLOB))
       .map((t) => t.path)
       .slice(0, 30);
     if (!codeFiles.length) throw new Error("No code files found in that repo.");
     $("ghStatus").textContent = "Fetching " + codeFiles.length + " files…";
     const files = [];
+    let totalChars = 0;
+    let skipped = 0;
+    let truncated = 0;
     const prefix = "https://raw.githubusercontent.com/" + gh.owner + "/" + gh.repo + "/" + encodeURIComponent(branch) + "/";
     for (let i = 0; i < codeFiles.length; i++) {
       const p = codeFiles[i];
       try {
         const r = await fetch(prefix + p.split("/").map(encodeURIComponent).join("/"));
         if (r.ok) {
+          const cl = r.headers.get("content-length");
+          if (cl && +cl > MAX_BLOB) { skipped++; continue; }
           const t = await r.text();
-          files.push({ name: p, text: t });
+          if (t.length > MAX_FILE_CHARS) truncated++;
+          files.push({ name: p, text: t.slice(0, MAX_FILE_CHARS) });
+          totalChars += Math.min(t.length, MAX_FILE_CHARS);
+          if (totalChars >= MAX_TOTAL_CHARS) break;
         }
       } catch (e) { /* skip unreadable file */ }
     }
     if (!files.length) throw new Error("Could not read any files from the repo.");
     setEditorFiles(files);
-    $("ghStatus").textContent = gh.owner + "/" + gh.repo + " · " + files.length + " files";
+    const extra = [];
+    if (skipped) extra.push(skipped + " skipped (too large)");
+    if (truncated) extra.push(truncated + " truncated to fit");
+    $("ghStatus").textContent = gh.owner + "/" + gh.repo + " · " + files.length + " file" + (files.length === 1 ? "" : "s") + (extra.length ? " · " + extra.join(", ") : "");
     $("ghStatus").className = "gh-status ok";
     if (activeMode !== "static") setMode("static");
     runStatic();
@@ -1101,7 +1220,13 @@ function bindEvents() {
 
   $("btnRun").addEventListener("click", run);
 
-  $("btnSample").addEventListener("click", loadSample);
+  $("btnSample").addEventListener("click", () => loadSample($("sampleSel").value));
+  $("btnExpand").addEventListener("click", () => {
+    const box = document.querySelector(".editor");
+    const expanded = box.classList.toggle("expanded");
+    $("btnExpand").textContent = expanded ? "Collapse editor" : "Expand editor";
+    box.querySelector("textarea").focus();
+  });
   $("btnClear").addEventListener("click", () => {
     codeEl.value = "";
     loadedFiles = null;
@@ -1166,7 +1291,7 @@ function bindEvents() {
     a.addEventListener("click", (e) => {
       e.preventDefault();
       const chip = a.dataset.chip;
-      if (chip === "sample") loadSample();
+      if (chip === "sample") loadSample($("sampleSel").value);
       else if (chip === "upload") { scrollToStudio(); $("fileInput").click(); }
       else scrollToStudio();
     });
@@ -1189,6 +1314,7 @@ function initReveal() {
 }
 
 renderProviderSelect();
+renderSampleSelect();
 renderSections();
 renderSample();
 bindEvents();
@@ -1198,5 +1324,5 @@ $("tempVal").textContent = settings.temp.toFixed(1);
 syncProviderUI();
 renderGutter([], []);
 initReveal();
-setEditorFiles([{ name: "src/demo.ts", text: SAMPLE }]);
+setEditorFiles([{ name: SAMPLES.demo.file, text: SAMPLES.demo.code }]);
 runStatic();
