@@ -6,7 +6,7 @@
     { "src": "web/**", "use": "@vercel/static" }
   ],
   "routes": [
-    { "src": "/api/ai", "dest": "/api/ai" },
+    { "src": "/api/ai", "dest": "/api/ai.mjs" },
     { "src": "/", "dest": "/web/index.html" },
     { "src": "/(.*)", "dest": "/web/$1" }
   ],
